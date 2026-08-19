@@ -85,12 +85,22 @@ export function ReceiptModal({
     window.print();
   };
 
-  // Cek apakah transaksi dalam rentang 5 menit (300 detik)
-  const isWithin5Minutes = () => {
-    if (!data.tanggal) return false;
-    const diffMs = Date.now() - new Date(data.tanggal).getTime();
-    return diffMs <= 5 * 60 * 1000 + 15000;
-  };
+  const [canCancel, setCanCancel] = useState(false);
+
+  React.useEffect(() => {
+    if (!data?.tanggal) {
+      setCanCancel(false);
+      return;
+    }
+    const checkCancelable = () => {
+      const diffMs = Date.now() - new Date(data.tanggal!).getTime();
+      setCanCancel(diffMs <= 5 * 60 * 1000 + 15000);
+    };
+    checkCancelable();
+    const interval = setInterval(checkCancelable, 10000);
+    return () => clearInterval(interval);
+  }, [data?.tanggal]);
+
 
   const handleCancelTransaction = async () => {
     if (!data.transaksiId) return;
@@ -266,8 +276,9 @@ export function ReceiptModal({
         {/* Modal Bottom Actions */}
         <div className="p-4 bg-zinc-50 space-y-2">
           {/* Cancel within 5 minutes */}
-          {isWithin5Minutes() && (
+          {canCancel && (
             <button
+
               type="button"
               onClick={() => setShowCancelConfirm(true)}
               className="w-full py-2 px-3 rounded-xl bg-white hover:bg-red-50 text-[#d62934] text-xs font-bold border border-red-200 flex items-center justify-center gap-1.5 transition-all cursor-pointer"

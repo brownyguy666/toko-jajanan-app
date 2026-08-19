@@ -45,64 +45,78 @@ export function TodayHistoryView() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedReceipt, setSelectedReceipt] = useState<TransactionResult | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Cancellation State
   const [trxToCancel, setTrxToCancel] = useState<TransaksiWithItems | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
-  const [currentTime, setCurrentTime] = useState(Date.now());
+  const [currentTime, setCurrentTime] = useState<number | null>(null);
+
+  const refetch = useCallback(() => {
+    setRefreshTrigger((prev) => prev + 1);
+  }, []);
 
   // Update current time every 30s to refresh 5-minute countdowns
   useEffect(() => {
+    setCurrentTime(Date.now());
     const timer = setInterval(() => setCurrentTime(Date.now()), 30000);
     return () => clearInterval(timer);
   }, []);
 
-  const loadTodayHistory = useCallback(async () => {
-    setLoading(true);
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) return;
-
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-
-      const { data, error } = await supabase
-        .from("transaksi")
-        .select(`
-          id,
-          kasir_id,
-          tanggal,
-          total,
-          metode_bayar,
-          transaksi_item (
-            id,
-            qty,
-            harga_saat_jual,
-            subtotal,
-            produk (
-              nama
-            )
-          )
-        `)
-        .eq("kasir_id", user.id)
-        .gte("tanggal", todayStart.toISOString())
-        .order("tanggal", { ascending: false });
-
-      if (error) throw error;
-      setTransactions((data as unknown as TransaksiWithItems[]) || []);
-    } catch (err: unknown) {
-      console.error("Error loading today's cashier history:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [supabase]);
-
   useEffect(() => {
+    let isMounted = true;
+
+    async function loadTodayHistory() {
+      setLoading(true);
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) return;
+
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+
+        const { data, error } = await supabase
+          .from("transaksi")
+          .select(`
+            id,
+            kasir_id,
+            tanggal,
+            total,
+            metode_bayar,
+            transaksi_item (
+              id,
+              qty,
+              harga_saat_jual,
+              subtotal,
+              produk (
+                nama
+              )
+            )
+          `)
+          .eq("kasir_id", user.id)
+          .gte("tanggal", todayStart.toISOString())
+          .order("tanggal", { ascending: false });
+
+        if (error) throw error;
+        if (isMounted) {
+          setTransactions((data as unknown as TransaksiWithItems[]) || []);
+        }
+      } catch (err: unknown) {
+        console.error("Error loading today's cashier history:", err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
     loadTodayHistory();
-  }, [loadTodayHistory]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [supabase, refreshTrigger]);
 
   // Handle Confirm Cancel
   const handleConfirmCancel = async () => {
@@ -129,6 +143,7 @@ export function TodayHistoryView() {
 
   // Helper cek sisa menit pembatalan
   const getCancelTimeLeftMinutes = (tanggal: string) => {
+    if (!currentTime) return 0;
     const diffMs = currentTime - new Date(tanggal).getTime();
     const remainingMs = 5 * 60 * 1000 - diffMs;
     if (remainingMs <= 0) return 0;
@@ -339,7 +354,7 @@ export function TodayHistoryView() {
         isOpen={Boolean(selectedReceipt)}
         onClose={() => setSelectedReceipt(null)}
         data={selectedReceipt}
-        onTransactionCancelled={loadTodayHistory}
+        onTransactionCancelled={refetch}
       />
 
       {/* Modal Konfirmasi Pembatalan Transaksi */}
