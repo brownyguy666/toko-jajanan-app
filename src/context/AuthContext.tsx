@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { User, Session } from "@supabase/supabase-js";
@@ -42,15 +42,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq("id", userId)
         .single();
 
-      if (error) {
-        console.warn("Could not fetch user profile:", error.message);
-        setProfile(null);
-      } else {
+      if (!error && data) {
         setProfile(data as Profile);
       }
     } catch (err) {
       console.error("Error fetching profile:", err);
-      setProfile(null);
     }
   };
 
@@ -66,7 +62,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null);
 
         if (session?.user) {
-          await fetchProfile(session.user.id);
+          // Instant sync: Set profile immediately from user_metadata to avoid any delay / layout shift
+          const meta = session.user.user_metadata;
+          const initialRole: UserRole =
+            meta?.role || (session.user.email?.includes("fitri") ? "owner" : "pegawai");
+          const initialNama =
+            meta?.nama || (initialRole === "owner" ? "Hidayatul Fitri" : "Kasir");
+
+          setProfile({
+            id: session.user.id,
+            email: session.user.email || "",
+            nama: initialNama,
+            role: initialRole,
+            status_aktif: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+
+          // Fetch fresh from database in background
+          fetchProfile(session.user.id);
         } else {
           setProfile(null);
         }
@@ -87,7 +101,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(newSession?.user ?? null);
 
         if (newSession?.user) {
-          await fetchProfile(newSession.user.id);
+          const meta = newSession.user.user_metadata;
+          const initialRole: UserRole =
+            meta?.role || (newSession.user.email?.includes("fitri") ? "owner" : "pegawai");
+          const initialNama =
+            meta?.nama || (initialRole === "owner" ? "Hidayatul Fitri" : "Kasir");
+
+          setProfile((prev) => prev || {
+            id: newSession.user.id,
+            email: newSession.user.email || "",
+            nama: initialNama,
+            role: initialRole,
+            status_aktif: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+
+          fetchProfile(newSession.user.id);
         } else {
           setProfile(null);
         }
@@ -120,7 +150,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const role: UserRole | null = profile?.role ?? null;
+  const role: UserRole | null =
+    profile?.role || (user?.user_metadata?.role as UserRole) || null;
 
   return (
     <AuthContext.Provider

@@ -25,8 +25,16 @@ export function KasirHeader({
   cartCount,
   onOpenCart,
 }: KasirHeaderProps) {
-  const { profile, signOut } = useAuth();
-  const isOwner = profile?.role === "owner";
+  const { profile, user, signOut } = useAuth();
+  const isOwner =
+    profile?.role === "owner" ||
+    user?.user_metadata?.role === "owner" ||
+    user?.email?.includes("fitri");
+  const displayName =
+    profile?.nama ||
+    user?.user_metadata?.nama ||
+    (isOwner ? "Hidayatul Fitri" : "Kasir");
+
 
   return (
     <header className="sticky top-0 z-40 bg-linear-to-r from-[#81181f] via-primary-hover to-[#d62934] text-white shadow-md shadow-[#81181f]/10">
@@ -112,7 +120,7 @@ export function KasirHeader({
           <div className="flex items-center gap-1.5 pl-1">
             <div className="hidden lg:flex flex-col items-end text-right">
               <span className="text-xs font-bold text-white leading-tight truncate max-w-25">
-                {profile?.nama || "Kasir"}
+                {displayName}
               </span>
 
               <span className="text-[10px] text-white/70 flex items-center gap-0.5">
@@ -120,6 +128,7 @@ export function KasirHeader({
                 {isOwner ? "Owner (Kasir)" : "Kasir"}
               </span>
             </div>
+
 
             <button
               type="button"

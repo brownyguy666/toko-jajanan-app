@@ -20,8 +20,10 @@ import {
 
 export function AdminNavbar() {
   const pathname = usePathname();
-  const { profile, signOut } = useAuth();
+  const { profile, user, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const displayName = profile?.nama || user?.user_metadata?.nama || "Hidayatul Fitri";
+
 
   const navItems = [
     {
@@ -111,10 +113,11 @@ export function AdminNavbar() {
             <div className="flex items-center gap-2">
               <div className="text-right">
                 <p className="text-xs font-bold text-white leading-tight truncate max-w-30">
-                  {profile?.nama || "Owner"}
+                  {displayName}
                 </p>
                 <span className="text-[10px] text-white/70">Pemilik Bisnis</span>
               </div>
+
 
               <button
                 onClick={() => signOut()}
