@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState } from "react";
 import Link from "next/link";
@@ -8,7 +8,7 @@ import {
   UtensilsCrossed,
   Package,
   Users,
-  TrendingUp,
+  LayoutDashboard,
   Receipt,
   ShoppingBag,
   LogOut,
@@ -25,6 +25,12 @@ export function AdminNavbar() {
 
   const navItems = [
     {
+      name: "Ringkasan & Laporan",
+      href: "/dashboard",
+      icon: LayoutDashboard,
+      active: pathname === "/dashboard" || pathname === "/admin",
+    },
+    {
       name: "Katalog Produk",
       href: "/dashboard/produk",
       icon: Package,
@@ -37,12 +43,6 @@ export function AdminNavbar() {
       active: pathname.startsWith("/dashboard/pegawai"),
     },
     {
-      name: "Laporan & Omzet",
-      href: "/dashboard/laporan",
-      icon: TrendingUp,
-      active: pathname.startsWith("/dashboard/laporan"),
-    },
-    {
       name: "Pengeluaran",
       href: "/dashboard/pengeluaran",
       icon: Receipt,
@@ -51,13 +51,13 @@ export function AdminNavbar() {
   ];
 
   return (
-    <header className="sticky top-0 z-40 bg-gradient-to-r from-[#81181f] via-[#ba1f29] to-[#d62934] text-white shadow-lg shadow-[#81181f]/10">
+    <header className="sticky top-0 z-40 bg-linear-to-r from-[#81181f] via-primary-hover to-[#d62934] text-white shadow-lg shadow-[#81181f]/10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Brand / Logo */}
           <div className="flex items-center gap-3">
             <Link
-              href="/dashboard/produk"
+              href="/dashboard"
               className="flex items-center gap-2.5 group active:scale-98 transition-all"
             >
               <div className="w-9 h-9 rounded-xl bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-inner group-hover:bg-white/25 transition-all">
@@ -99,7 +99,7 @@ export function AdminNavbar() {
           <div className="hidden sm:flex items-center gap-3">
             <Link
               href="/kasir"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#47d1b5] hover:bg-[#3ec4a9] text-[#0c4a3c] font-bold text-xs shadow-sm hover:shadow transition-all active:scale-98 touch-btn"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#47d1b5] hover:bg-[#3ec4a9] text-[#0c4a3c] font-bold text-xs shadow-sm hover:shadow transition-all active:scale-98 touch-btn cursor-pointer"
             >
               <ShoppingBag className="w-4 h-4" />
               <span>Buka POS Kasir</span>
@@ -110,7 +110,7 @@ export function AdminNavbar() {
 
             <div className="flex items-center gap-2">
               <div className="text-right">
-                <p className="text-xs font-bold text-white leading-tight truncate max-w-[120px]">
+                <p className="text-xs font-bold text-white leading-tight truncate max-w-30">
                   {profile?.nama || "Owner"}
                 </p>
                 <span className="text-[10px] text-white/70">Pemilik Bisnis</span>
@@ -137,7 +137,7 @@ export function AdminNavbar() {
             </Link>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-xl bg-white/15 text-white border border-white/20"
+              className="p-2 rounded-xl bg-white/15 text-white border border-white/20 cursor-pointer"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -176,7 +176,7 @@ export function AdminNavbar() {
             </div>
             <button
               onClick={() => signOut()}
-              className="flex items-center gap-1 text-xs font-bold text-rose-200 hover:text-white px-2 py-1 rounded-lg bg-black/20"
+              className="flex items-center gap-1 text-xs font-bold text-rose-200 hover:text-white px-2 py-1 rounded-lg bg-black/20 cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span>Keluar</span>

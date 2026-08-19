@@ -112,20 +112,21 @@ export default function AdminDashboardPage() {
 
           {/* Card 3: Laporan & Laba */}
           <Link
-            href="/dashboard/laporan"
+            href="/dashboard"
             className="p-5 rounded-2xl bg-white border border-[#d59a9e]/30 shadow-sm hover:shadow-md transition-all block group"
           >
             <div className="w-11 h-11 rounded-xl bg-[#81181f]/10 text-[#81181f] flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
               <TrendingUp className="w-6 h-6" />
             </div>
-            <h4 className="font-bold text-[#81181f] text-base">Laporan & Omzet</h4>
+            <h4 className="font-bold text-[#81181f] text-base">Ringkasan & Laporan</h4>
             <p className="text-xs text-zinc-500 mt-1 mb-4 leading-relaxed">
-              Hitung omzet harian/bulanan, laba bersih, dan produk terlaris.
+              Hitung omzet harian/bulanan, laba bersih, grafik tren, dan produk terlaris.
             </p>
             <span className="inline-flex items-center gap-1 text-xs font-bold text-[#81181f]">
-              Lihat Laporan &rarr;
+              Lihat Ringkasan &rarr;
             </span>
           </Link>
+
 
           {/* Card 4: Pengeluaran */}
           <Link
