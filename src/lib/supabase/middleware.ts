@@ -1,4 +1,4 @@
-﻿import { createServerClient } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { Database, Profile } from "@/types/database";
 
@@ -45,7 +45,7 @@ export async function updateSession(request: NextRequest) {
 
   // 1. Jika belum login
   if (!user) {
-    if (pathname.startsWith("/admin") || pathname.startsWith("/kasir")) {
+    if (pathname.startsWith("/admin") || pathname.startsWith("/dashboard") || pathname.startsWith("/kasir")) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       url.searchParams.set("redirect", pathname);
@@ -79,19 +79,19 @@ export async function updateSession(request: NextRequest) {
   // 3. Akses halaman /login saat sudah authenticated -> redirect ke dashboard/kasir
   if (pathname === "/login") {
     const url = request.nextUrl.clone();
-    url.pathname = role === "owner" ? "/admin" : "/kasir";
+    url.pathname = role === "owner" ? "/dashboard/produk" : "/kasir";
     return NextResponse.redirect(url);
   }
 
   // 4. Akses root / -> redirect sesuai role
   if (pathname === "/") {
     const url = request.nextUrl.clone();
-    url.pathname = role === "owner" ? "/admin" : "/kasir";
+    url.pathname = role === "owner" ? "/dashboard/produk" : "/kasir";
     return NextResponse.redirect(url);
   }
 
-  // 5. Proteksi route /admin/* -> HANYA untuk OWNER
-  if (pathname.startsWith("/admin")) {
+  // 5. Proteksi route /admin/* dan /dashboard/* -> HANYA untuk OWNER
+  if (pathname.startsWith("/admin") || pathname.startsWith("/dashboard")) {
     if (role !== "owner") {
       const url = request.nextUrl.clone();
       url.pathname = "/kasir";
@@ -100,4 +100,5 @@ export async function updateSession(request: NextRequest) {
   }
 
   return supabaseResponse;
+
 }
