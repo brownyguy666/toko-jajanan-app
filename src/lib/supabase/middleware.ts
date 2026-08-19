@@ -1,6 +1,6 @@
 ﻿import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { Database } from "@/types/database";
+import { Database, Profile } from "@/types/database";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -37,10 +37,67 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // IMPORTANT: Do not run code between createServerClient and
-  // supabase.auth.getUser(). A simple mistake could make it very hard to debug
-  // issues with users being randomly logged out.
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const pathname = request.nextUrl.pathname;
+
+  // 1. Jika belum login
+  if (!user) {
+    if (pathname.startsWith("/admin") || pathname.startsWith("/kasir")) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(url);
+    }
+    return supabaseResponse;
+  }
+
+  // 2. Jika user sudah login, ambil profil & role
+  let userProfile: Profile | null = null;
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .single();
+
+  if (profile) {
+    userProfile = profile as Profile;
+  }
+
+  // Jika akun dinonaktifkan
+  if (userProfile && !userProfile.status_aktif) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("error", "deactivated");
+    return NextResponse.redirect(url);
+  }
+
+  const role = userProfile?.role || "pegawai";
+
+  // 3. Akses halaman /login saat sudah authenticated -> redirect ke dashboard/kasir
+  if (pathname === "/login") {
+    const url = request.nextUrl.clone();
+    url.pathname = role === "owner" ? "/admin" : "/kasir";
+    return NextResponse.redirect(url);
+  }
+
+  // 4. Akses root / -> redirect sesuai role
+  if (pathname === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = role === "owner" ? "/admin" : "/kasir";
+    return NextResponse.redirect(url);
+  }
+
+  // 5. Proteksi route /admin/* -> HANYA untuk OWNER
+  if (pathname.startsWith("/admin")) {
+    if (role !== "owner") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/kasir";
+      return NextResponse.redirect(url);
+    }
+  }
 
   return supabaseResponse;
 }

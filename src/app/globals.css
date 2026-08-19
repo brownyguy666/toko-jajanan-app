@@ -1,26 +1,64 @@
 @import "tailwindcss";
 
+@theme {
+  --color-brand-cream: #efe6e6;
+  --color-brand-rose: #d59a9e;
+  --color-brand-red: #d62934;
+  --color-brand-wine: #81181f;
+  --color-brand-mint: #47d1b5;
+
+  --color-primary: #d62934;
+  --color-primary-dark: #81181f;
+  --color-primary-hover: #ba1f29;
+  --color-accent: #47d1b5;
+  --color-surface: #efe6e6;
+  --color-surface-rose: #d59a9e;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #fdfbfb;
+  --foreground: #1c1314;
+  --card: #ffffff;
+  --card-foreground: #1c1314;
+  --border: #f0dedf;
+  --primary: #d62934;
+  --primary-foreground: #ffffff;
+  --wine: #81181f;
+  --mint: #47d1b5;
+  --cream: #efe6e6;
+  --rose: #d59a9e;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #efe6e6;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d59a9e;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #d62934;
+}
+
+/* Touch friendly utilities for POS */
+.touch-btn {
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }

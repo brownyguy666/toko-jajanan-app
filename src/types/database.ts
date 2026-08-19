@@ -1,4 +1,4 @@
-﻿export type UserRole = "owner" | "pegawai";
+export type UserRole = "owner" | "pegawai";
 export type PaymentMethod = "tunai" | "qris" | "transfer";
 export type ExpenseCategory = "bahan baku" | "gas" | "kemasan" | "sewa" | "lainnya";
 
@@ -60,45 +60,153 @@ export type Database = {
     Tables: {
       profiles: {
         Row: Profile;
-        Insert: Omit<Profile, "created_at" | "updated_at"> & {
+        Insert: {
+          id: string;
+          nama: string;
+          email: string;
+          role: UserRole;
+          status_aktif?: boolean;
           created_at?: string;
           updated_at?: string;
         };
-        Update: Partial<Omit<Profile, "id">>;
+        Update: {
+          id?: string;
+          nama?: string;
+          email?: string;
+          role?: UserRole;
+          status_aktif?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
       produk: {
         Row: Produk;
-        Insert: Omit<Produk, "id" | "created_at" | "updated_at"> & {
+        Insert: {
           id?: string;
+          nama: string;
+          kategori: string;
+          harga_jual: number;
+          harga_modal: number;
+          stok?: number;
+          foto_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };
-        Update: Partial<Omit<Produk, "id">>;
+        Update: {
+          id?: string;
+          nama?: string;
+          kategori?: string;
+          harga_jual?: number;
+          harga_modal?: number;
+          stok?: number;
+          foto_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
       transaksi: {
         Row: Transaksi;
-        Insert: Omit<Transaksi, "id" | "created_at" | "kasir" | "items"> & {
+        Insert: {
           id?: string;
+          kasir_id: string;
+          tanggal?: string;
+          total: number;
+          metode_bayar: PaymentMethod;
           created_at?: string;
         };
-        Update: Partial<Omit<Transaksi, "id">>;
+        Update: {
+          id?: string;
+          kasir_id?: string;
+          tanggal?: string;
+          total?: number;
+          metode_bayar?: PaymentMethod;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "transaksi_kasir_id_fkey";
+            columns: ["kasir_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          }
+        ];
       };
       transaksi_item: {
         Row: TransaksiItem;
-        Insert: Omit<TransaksiItem, "id" | "created_at" | "produk"> & {
+        Insert: {
           id?: string;
+          transaksi_id: string;
+          produk_id: string;
+          qty: number;
+          harga_saat_jual: number;
+          subtotal: number;
           created_at?: string;
         };
-        Update: Partial<Omit<TransaksiItem, "id">>;
+        Update: {
+          id?: string;
+          transaksi_id?: string;
+          produk_id?: string;
+          qty?: number;
+          harga_saat_jual?: number;
+          subtotal?: number;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "transaksi_item_transaksi_id_fkey";
+            columns: ["transaksi_id"];
+            isOneToOne: false;
+            referencedRelation: "transaksi";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transaksi_item_produk_id_fkey";
+            columns: ["produk_id"];
+            isOneToOne: false;
+            referencedRelation: "produk";
+            referencedColumns: ["id"];
+          }
+        ];
       };
       pengeluaran: {
         Row: Pengeluaran;
-        Insert: Omit<Pengeluaran, "id" | "created_at"> & {
+        Insert: {
           id?: string;
+          tanggal?: string;
+          kategori: ExpenseCategory;
+          jumlah: number;
+          keterangan?: string | null;
           created_at?: string;
         };
-        Update: Partial<Omit<Pengeluaran, "id">>;
+        Update: {
+          id?: string;
+          tanggal?: string;
+          kategori?: ExpenseCategory;
+          jumlah?: number;
+          keterangan?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
       };
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      is_owner: {
+        Args: Record<PropertyKey, never>;
+        Returns: boolean;
+      };
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
     };
   };
 };
+
