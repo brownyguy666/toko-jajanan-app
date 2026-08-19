@@ -89,12 +89,29 @@ function LoginForm() {
       setErrorMessage(res.error || "Gagal masuk. Periksa kembali email dan password.");
       setIsLoading(false);
     } else {
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(
+            "toko_auth_cache",
+            JSON.stringify({
+              id: res.userId || "cached-id",
+              email: res.email || email,
+              nama: res.nama || (res.role === "owner" ? "Hidayatul Fitri" : "Kasir"),
+              role: res.role || "owner",
+            })
+          );
+        } catch (err) {
+          console.warn("Could not save auth cache:", err);
+        }
+      }
+
       setSuccessMessage("Berhasil masuk! Mengalihkan halaman...");
       setTimeout(() => {
-        router.push(res.redirectTo || (res.role === "owner" ? "/admin" : "/kasir"));
+        router.push(res.redirectTo || (res.role === "owner" ? "/dashboard/produk" : "/kasir"));
         router.refresh();
-      }, 500);
+      }, 300);
     }
+
   };
 
   const handleRegisterOwner = async (e: React.FormEvent) => {

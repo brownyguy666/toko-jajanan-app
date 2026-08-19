@@ -29,7 +29,31 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
+
+  // Synchronous 0ms initialization from localStorage cache
+  const [profile, setProfile] = useState<Profile | null>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("toko_auth_cache");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          return {
+            id: parsed.id || "cached-id",
+            email: parsed.email || "",
+            nama: parsed.nama || (parsed.role === "owner" ? "Hidayatul Fitri" : "Kasir"),
+            role: parsed.role || "owner",
+            status_aktif: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+        }
+      } catch (err) {
+        console.warn("Could not read auth cache:", err);
+      }
+    }
+    return null;
+  });
+
   const [loading, setLoading] = useState<boolean>(true);
   const supabase = createClient();
   const router = useRouter();
@@ -44,6 +68,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (!error && data) {
         setProfile(data as Profile);
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem(
+              "toko_auth_cache",
+              JSON.stringify({
+                id: data.id,
+                email: data.email,
+                nama: data.nama,
+                role: data.role,
+              })
+            );
+          } catch (e) {
+            console.warn("Could not update auth cache:", e);
+          }
+        }
       }
     } catch (err) {
       console.error("Error fetching profile:", err);
@@ -55,21 +94,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     async function initAuth() {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
         if (!mounted) return;
 
         setSession(session);
         setUser(session?.user ?? null);
 
         if (session?.user) {
-          // Instant sync: Set profile immediately from user_metadata to avoid any delay / layout shift
           const meta = session.user.user_metadata;
           const initialRole: UserRole =
             meta?.role || (session.user.email?.includes("fitri") ? "owner" : "pegawai");
           const initialNama =
             meta?.nama || (initialRole === "owner" ? "Hidayatul Fitri" : "Kasir");
 
-          setProfile({
+          setProfile((prev) => prev || {
             id: session.user.id,
             email: session.user.email || "",
             nama: initialNama,
@@ -82,7 +122,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Fetch fresh from database in background
           fetchProfile(session.user.id);
         } else {
-          setProfile(null);
+          // If explicitly no session
+          if (typeof window !== "undefined" && !localStorage.getItem("toko_auth_cache")) {
+            setProfile(null);
+          }
         }
       } catch (err) {
         console.error("Error initializing auth:", err);
@@ -93,37 +136,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, newSession) => {
-        if (!mounted) return;
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      if (!mounted) return;
 
-        setSession(newSession);
-        setUser(newSession?.user ?? null);
+      setSession(newSession);
+      setUser(newSession?.user ?? null);
 
-        if (newSession?.user) {
-          const meta = newSession.user.user_metadata;
-          const initialRole: UserRole =
-            meta?.role || (newSession.user.email?.includes("fitri") ? "owner" : "pegawai");
-          const initialNama =
-            meta?.nama || (initialRole === "owner" ? "Hidayatul Fitri" : "Kasir");
+      if (newSession?.user) {
+        const meta = newSession.user.user_metadata;
+        const initialRole: UserRole =
+          meta?.role || (newSession.user.email?.includes("fitri") ? "owner" : "pegawai");
+        const initialNama =
+          meta?.nama || (initialRole === "owner" ? "Hidayatul Fitri" : "Kasir");
 
-          setProfile((prev) => prev || {
-            id: newSession.user.id,
-            email: newSession.user.email || "",
-            nama: initialNama,
-            role: initialRole,
-            status_aktif: true,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          });
+        setProfile((prev) => prev || {
+          id: newSession.user.id,
+          email: newSession.user.email || "",
+          nama: initialNama,
+          role: initialRole,
+          status_aktif: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
 
-          fetchProfile(newSession.user.id);
-        } else {
-          setProfile(null);
+        fetchProfile(newSession.user.id);
+      } else if (event === "SIGNED_OUT") {
+        setProfile(null);
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("toko_auth_cache");
         }
-        setLoading(false);
       }
-    );
+      setLoading(false);
+    });
 
     return () => {
       mounted = false;
@@ -139,6 +185,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("toko_auth_cache");
+      }
       await supabase.auth.signOut();
       setUser(null);
       setSession(null);

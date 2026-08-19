@@ -9,6 +9,9 @@ export interface AuthActionResult {
   success: boolean;
   error?: string;
   role?: "owner" | "pegawai";
+  nama?: string;
+  email?: string;
+  userId?: string;
   redirectTo?: string;
 }
 
@@ -73,9 +76,13 @@ export async function loginAction(formData: FormData): Promise<AuthActionResult>
   return {
     success: true,
     role,
+    nama: userProfile.nama,
+    email: userProfile.email,
+    userId: userProfile.id,
     redirectTo,
   };
 }
+
 
 /**
  * Server Action: Sign Out
