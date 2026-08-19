@@ -168,10 +168,11 @@ export function ExpenseComparisonChart({
         </div>
 
         <div className="p-2.5 rounded-xl bg-[#47d1b5]/15 border border-[#47d1b5]/30">
-          <span className="text-[10px] font-bold text-[#0c6b57] uppercase block flex items-center gap-0.5">
+          <span className="text-[10px] font-bold text-[#0c6b57] uppercase flex items-center gap-0.5">
             <DollarSign className="w-3 h-3" />
             Laba Bersih
           </span>
+
           <p className="font-extrabold text-xs sm:text-sm text-[#0c6b57] truncate">
             {formatRupiah(labaBersih)}
           </p>

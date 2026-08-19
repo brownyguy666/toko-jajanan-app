@@ -28,7 +28,8 @@ interface SalesTrendChartProps {
 export function SalesTrendChart({ data, periodLabel }: SalesTrendChartProps) {
   if (!data || data.length === 0) {
     return (
-      <div className="bg-white rounded-3xl border border-[#d59a9e]/30 p-6 shadow-sm flex flex-col items-center justify-center min-h-[320px] text-center">
+      <div className="bg-white rounded-3xl border border-[#d59a9e]/30 p-6 shadow-sm flex flex-col items-center justify-center min-h-80 text-center">
+
         <div className="w-12 h-12 rounded-2xl bg-[#efe6e6] text-[#d62934] flex items-center justify-center mb-3">
           <TrendingUp className="w-6 h-6" />
         </div>
@@ -101,7 +102,8 @@ export function SalesTrendChart({ data, periodLabel }: SalesTrendChartProps) {
               content={({ active, payload, label }) => {
                 if (active && payload && payload.length) {
                   return (
-                    <div className="bg-white/95 backdrop-blur-md p-3.5 rounded-2xl shadow-xl border border-[#d59a9e]/40 text-xs space-y-1.5 min-w-[160px]">
+                    <div className="bg-white/95 backdrop-blur-md p-3.5 rounded-2xl shadow-xl border border-[#d59a9e]/40 text-xs space-y-1.5 min-w-40">
+
                       <p className="font-bold text-zinc-900 border-b border-zinc-100 pb-1">
                         {label}
                       </p>
