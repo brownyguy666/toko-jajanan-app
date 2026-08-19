@@ -202,22 +202,23 @@ function LoginForm() {
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1.5">
-                  Email Akun
+                  Email (Owner) / Username (Kasir)
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#d59a9e]">
                     <Mail className="w-5 h-5" />
                   </div>
                   <input
-                    type="email"
+                    type="text"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="nama@tokojajanan.com"
+                    placeholder="Contoh: siti01 atau owner@toko.com"
                     className="input-field pl-11"
                   />
                 </div>
               </div>
+
 
               <div>
                 <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1.5">

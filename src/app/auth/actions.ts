@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Profile } from "@/types/database";
+import { formatStaffEmail } from "@/lib/utils";
 
 export interface AuthActionResult {
   success: boolean;
@@ -11,28 +12,34 @@ export interface AuthActionResult {
   redirectTo?: string;
 }
 
+
 /**
- * Server Action: Login dengan Email & Password
+ * Server Action: Login dengan Email (Owner) atau Username (Kasir/Pegawai)
  */
 export async function loginAction(formData: FormData): Promise<AuthActionResult> {
-  const email = (formData.get("email") as string)?.trim();
+  const identifier = (formData.get("email") as string || formData.get("username") as string)?.trim();
   const password = formData.get("password") as string;
 
-  if (!email || !password) {
-    return { success: false, error: "Email dan password wajib diisi." };
+  if (!identifier || !password) {
+    return { success: false, error: "Email/Username dan password wajib diisi." };
   }
+
+  // Jika user memasukkan username tanpa '@', format ke internal staff email
+  const finalEmail = identifier.includes("@")
+    ? identifier
+    : formatStaffEmail(identifier);
 
   const supabase = await createClient();
 
   const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-    email,
+    email: finalEmail,
     password,
   });
 
   if (authError || !authData.user) {
     return {
       success: false,
-      error: "Email atau password salah. Silakan periksa kembali.",
+      error: "Username/Email atau password salah. Silakan periksa kembali.",
     };
   }
 
@@ -50,7 +57,7 @@ export async function loginAction(formData: FormData): Promise<AuthActionResult>
     };
   }
 
-  const userProfile = profile as Profile;
+  const userProfile = profile as unknown as Profile;
 
   if (!userProfile.status_aktif) {
     await supabase.auth.signOut();
@@ -61,7 +68,7 @@ export async function loginAction(formData: FormData): Promise<AuthActionResult>
   }
 
   const role = userProfile.role;
-  const redirectTo = role === "owner" ? "/admin" : "/kasir";
+  const redirectTo = role === "owner" ? "/dashboard/produk" : "/kasir";
 
   return {
     success: true,
@@ -151,7 +158,7 @@ export async function registerFirstOwnerAction(formData: FormData): Promise<Auth
       email,
       role: "owner",
       status_aktif: true,
-    } as any);
+    } as never);
 
     // Otomatis login dengan client
     const supabase = await createClient();
@@ -160,12 +167,13 @@ export async function registerFirstOwnerAction(formData: FormData): Promise<Auth
     return {
       success: true,
       role: "owner",
-      redirectTo: "/admin",
+      redirectTo: "/dashboard/produk",
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Terjadi kesalahan pada server saat registrasi.";
     return {
       success: false,
-      error: err?.message || "Terjadi kesalahan pada server saat registrasi.",
+      error: message,
     };
   }
 }
