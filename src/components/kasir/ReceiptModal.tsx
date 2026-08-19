@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { formatRupiah, formatTanggal } from "@/lib/utils";
 import { TransactionResult, cancelTransactionAction } from "@/app/kasir/actions";
+import { useCurrentTime } from "@/lib/hooks/useCurrentTime";
 import {
   CheckCircle2,
   Printer,
@@ -31,6 +32,14 @@ export function ReceiptModal({
   const [copied, setCopied] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const currentTime = useCurrentTime();
+
+  // Determine if transaction is within 5 minutes safely
+  const canCancel = Boolean(
+    data?.tanggal &&
+      currentTime > 0 &&
+      currentTime - new Date(data.tanggal).getTime() <= 5 * 60 * 1000 + 15000
+  );
 
   if (!isOpen || !data) return null;
 
@@ -84,23 +93,6 @@ export function ReceiptModal({
   const handlePrint = () => {
     window.print();
   };
-
-  const [canCancel, setCanCancel] = useState(false);
-
-  React.useEffect(() => {
-    if (!data?.tanggal) {
-      setCanCancel(false);
-      return;
-    }
-    const checkCancelable = () => {
-      const diffMs = Date.now() - new Date(data.tanggal!).getTime();
-      setCanCancel(diffMs <= 5 * 60 * 1000 + 15000);
-    };
-    checkCancelable();
-    const interval = setInterval(checkCancelable, 10000);
-    return () => clearInterval(interval);
-  }, [data?.tanggal]);
-
 
   const handleCancelTransaction = async () => {
     if (!data.transaksiId) return;
@@ -278,7 +270,6 @@ export function ReceiptModal({
           {/* Cancel within 5 minutes */}
           {canCancel && (
             <button
-
               type="button"
               onClick={() => setShowCancelConfirm(true)}
               className="w-full py-2 px-3 rounded-xl bg-white hover:bg-red-50 text-[#d62934] text-xs font-bold border border-red-200 flex items-center justify-center gap-1.5 transition-all cursor-pointer"

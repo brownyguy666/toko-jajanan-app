@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { formatRupiah, formatTanggal } from "@/lib/utils";
 import { ReceiptModal } from "@/components/kasir/ReceiptModal";
 import { TransactionResult, cancelTransactionAction } from "@/app/kasir/actions";
+import { useCurrentTime } from "@/lib/hooks/useCurrentTime";
 import { PaymentMethod } from "@/types/database";
 import {
   History,
@@ -40,6 +41,7 @@ interface TransaksiWithItems {
 
 export function TodayHistoryView() {
   const supabase = createClient();
+  const currentTime = useCurrentTime();
 
   const [transactions, setTransactions] = useState<TransaksiWithItems[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,24 +52,15 @@ export function TodayHistoryView() {
   // Cancellation State
   const [trxToCancel, setTrxToCancel] = useState<TransaksiWithItems | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
-  const [currentTime, setCurrentTime] = useState<number | null>(null);
 
   const refetch = useCallback(() => {
     setRefreshTrigger((prev) => prev + 1);
-  }, []);
-
-  // Update current time every 30s to refresh 5-minute countdowns
-  useEffect(() => {
-    setCurrentTime(Date.now());
-    const timer = setInterval(() => setCurrentTime(Date.now()), 30000);
-    return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
     let isMounted = true;
 
     async function loadTodayHistory() {
-      setLoading(true);
       try {
         const {
           data: { user },
