@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { Produk } from "@/types/database";
 import { formatRupiah, parseRupiah } from "@/lib/utils";
@@ -31,64 +32,51 @@ const DEFAULT_CATEGORIES = [
   "Lainnya",
 ];
 
-export function ProductModal({
-  isOpen,
+// Inner Form component with clean state initialization via key
+function ProductFormContent({
+  productToEdit,
   onClose,
   onSuccess,
-  productToEdit,
-}: ProductModalProps) {
+}: {
+  productToEdit?: Produk | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
   const supabase = createClient();
-
   const isEditing = Boolean(productToEdit);
 
-  // Form states
-  const [nama, setNama] = useState("");
-  const [kategori, setKategori] = useState("Gorengan");
-  const [customKategori, setCustomKategori] = useState("");
-  const [hargaJualStr, setHargaJualStr] = useState("");
-  const [hargaModalStr, setHargaModalStr] = useState("");
-  const [stokStr, setStokStr] = useState("10");
-  const [fotoUrl, setFotoUrl] = useState<string | null>(null);
+  // Initialize initial states directly from props
+  const [nama, setNama] = useState(() => productToEdit?.nama || "");
+  const [kategori, setKategori] = useState(() => {
+    if (!productToEdit) return "Gorengan";
+    return DEFAULT_CATEGORIES.includes(productToEdit.kategori)
+      ? productToEdit.kategori
+      : "Lainnya";
+  });
+  const [customKategori, setCustomKategori] = useState(() => {
+    if (!productToEdit) return "";
+    return DEFAULT_CATEGORIES.includes(productToEdit.kategori)
+      ? ""
+      : productToEdit.kategori;
+  });
+  const [hargaJualStr, setHargaJualStr] = useState(() =>
+    productToEdit ? productToEdit.harga_jual.toString() : ""
+  );
+  const [hargaModalStr, setHargaModalStr] = useState(() =>
+    productToEdit ? productToEdit.harga_modal.toString() : ""
+  );
+  const [stokStr, setStokStr] = useState(() =>
+    productToEdit ? productToEdit.stok.toString() : "20"
+  );
+  const [fotoUrl, setFotoUrl] = useState<string | null>(() => productToEdit?.foto_url || null);
 
   // File upload state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(() => productToEdit?.foto_url || null);
 
   // UI status
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  // Populate fields when productToEdit changes
-  useEffect(() => {
-    if (productToEdit) {
-      setNama(productToEdit.nama);
-      if (DEFAULT_CATEGORIES.includes(productToEdit.kategori)) {
-        setKategori(productToEdit.kategori);
-        setCustomKategori("");
-      } else {
-        setKategori("Lainnya");
-        setCustomKategori(productToEdit.kategori);
-      }
-      setHargaJualStr(productToEdit.harga_jual.toString());
-      setHargaModalStr(productToEdit.harga_modal.toString());
-      setStokStr(productToEdit.stok.toString());
-      setFotoUrl(productToEdit.foto_url);
-      setPreviewUrl(productToEdit.foto_url);
-    } else {
-      setNama("");
-      setKategori("Gorengan");
-      setCustomKategori("");
-      setHargaJualStr("");
-      setHargaModalStr("");
-      setStokStr("20");
-      setFotoUrl(null);
-      setPreviewUrl(null);
-    }
-    setErrorMsg(null);
-    setSelectedFile(null);
-  }, [productToEdit, isOpen]);
-
-  if (!isOpen) return null;
 
   // Real-time calculations
   const hargaJual = parseRupiah(hargaJualStr);
@@ -142,9 +130,8 @@ export function ProductModal({
       // Upload file to Supabase Storage jika ada file baru yang dipilih
       if (selectedFile) {
         const fileExt = selectedFile.name.split(".").pop() || "jpg";
-        const uniqueId = window.crypto?.randomUUID ? window.crypto.randomUUID() : `${Date.now()}`;
-        const fileName = `produk-${uniqueId}.${fileExt}`;
-        const filePath = `${fileName}`;
+        const uniqueToken = crypto.randomUUID();
+        const filePath = `produk-${uniqueToken}.${fileExt}`;
 
         const { error: uploadError } = await supabase.storage
           .from("produk-foto")
@@ -206,6 +193,230 @@ export function ProductModal({
   };
 
   return (
+    <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+      {errorMsg && (
+        <div className="p-3.5 rounded-2xl bg-[#d62934]/10 border border-[#d62934]/30 flex items-start gap-2.5 text-xs text-[#81181f]">
+          <AlertCircle className="w-4 h-4 text-[#d62934] shrink-0 mt-0.5" />
+          <span>{errorMsg}</span>
+        </div>
+      )}
+
+      {/* 1. Foto Produk */}
+      <div>
+        <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-2">
+          Foto Produk Jajanan
+        </label>
+        <div className="flex items-center gap-4">
+          <div className="relative w-20 h-20 rounded-2xl bg-[#efe6e6] border-2 border-dashed border-[#d59a9e] flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
+            {previewUrl ? (
+              <Image
+                src={previewUrl}
+                alt="Preview"
+                fill
+                unoptimized
+                className="object-cover"
+              />
+            ) : (
+              <ImageIcon className="w-8 h-8 text-[#d59a9e]" />
+            )}
+          </div>
+
+          <div className="flex-1 space-y-1.5">
+            <label className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#efe6e6] hover:bg-[#d59a9e]/30 text-[#81181f] text-xs font-bold border border-[#d59a9e]/50 cursor-pointer transition-all">
+              <Upload className="w-3.5 h-3.5" />
+              <span>{previewUrl ? "Ganti Foto" : "Pilih Foto Produk"}</span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+            </label>
+            {previewUrl && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedFile(null);
+                  setPreviewUrl(null);
+                  setFotoUrl(null);
+                }}
+                className="block text-[11px] text-[#d62934] font-semibold hover:underline cursor-pointer"
+              >
+                Hapus Foto
+              </button>
+            )}
+            <p className="text-[11px] text-zinc-400">
+              Format JPG, PNG, atau WebP (Maks. 3MB)
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Nama Produk */}
+      <div>
+        <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1.5">
+          Nama Jajanan / Produk *
+        </label>
+        <input
+          type="text"
+          required
+          value={nama}
+          onChange={(e) => setNama(e.target.value)}
+          placeholder="Contoh: Risoles Mayo Spesial"
+          className="input-field"
+        />
+      </div>
+
+      {/* 3. Kategori */}
+      <div>
+        <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1.5">
+          Kategori Jajanan
+        </label>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 mb-2">
+          {DEFAULT_CATEGORIES.map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => setKategori(cat)}
+              className={`py-1.5 px-2 rounded-xl text-xs font-semibold border transition-all text-center cursor-pointer ${
+                kategori === cat
+                  ? "bg-[#d62934] text-white border-[#d62934] shadow-xs"
+                  : "bg-[#efe6e6]/50 text-[#81181f] border-[#d59a9e]/40 hover:bg-[#efe6e6]"
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        {kategori === "Lainnya" && (
+          <input
+            type="text"
+            value={customKategori}
+            onChange={(e) => setCustomKategori(e.target.value)}
+            placeholder="Tulis nama kategori kustom..."
+            className="input-field mt-2"
+          />
+        )}
+      </div>
+
+      {/* 4. Harga Jual & Modal */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1.5">
+            Harga Jual (Rp) *
+          </label>
+          <div className="relative">
+            <input
+              type="text"
+              required
+              value={hargaJualStr ? formatRupiah(hargaJual) : ""}
+              onChange={(e) => setHargaJualStr(e.target.value)}
+              placeholder="Rp 0"
+              className="input-field"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1.5">
+            Harga Modal (Rp) *
+          </label>
+          <div className="relative">
+            <input
+              type="text"
+              required
+              value={hargaModalStr ? formatRupiah(hargaModal) : ""}
+              onChange={(e) => setHargaModalStr(e.target.value)}
+              placeholder="Rp 0"
+              className="input-field"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Live Profit Insight Card */}
+      <div className="p-3.5 rounded-2xl bg-[#efe6e6]/60 border border-[#d59a9e]/40 grid grid-cols-2 gap-3 text-xs">
+        <div>
+          <span className="text-zinc-500 block">Estimasi Laba / Porsi:</span>
+          <span
+            className={`font-extrabold text-sm ${
+              labaPerItem >= 0 ? "text-[#0c6b57]" : "text-[#d62934]"
+            }`}
+          >
+            {formatRupiah(labaPerItem)}
+          </span>
+        </div>
+        <div className="text-right">
+          <span className="text-zinc-500 block">Margin Keuntungan:</span>
+          <span
+            className={`inline-flex items-center gap-1 font-extrabold text-sm ${
+              marginPercent >= 0 ? "text-[#0c6b57]" : "text-[#d62934]"
+            }`}
+          >
+            <TrendingUp className="w-3.5 h-3.5" />
+            {marginPercent}%
+          </span>
+        </div>
+      </div>
+
+      {/* 5. Stok Jajanan */}
+      <div>
+        <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1.5">
+          Stok Tersedia (Porsi / Pcs) *
+        </label>
+        <input
+          type="number"
+          min="0"
+          required
+          value={stokStr}
+          onChange={(e) => setStokStr(e.target.value)}
+          placeholder="0"
+          className="input-field"
+        />
+      </div>
+
+      {/* Modal Actions */}
+      <div className="pt-4 border-t border-[#efe6e6] flex items-center justify-end gap-2.5">
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={loading}
+          className="px-4 py-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-xs font-bold transition-all cursor-pointer"
+        >
+          Batal
+        </button>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="px-6 py-2.5 rounded-xl bg-linear-to-r from-[#d62934] to-[#81181f] text-white text-xs font-bold shadow-md shadow-[#d62934]/25 hover:opacity-95 active:scale-98 transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+        >
+          {loading ? (
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <>
+              <CheckCircle2 className="w-4 h-4" />
+              <span>{isEditing ? "Simpan Perubahan" : "Tambah Produk"}</span>
+            </>
+          )}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+export function ProductModal({
+  isOpen,
+  onClose,
+  onSuccess,
+  productToEdit,
+}: ProductModalProps) {
+  if (!isOpen) return null;
+
+  const isEditing = Boolean(productToEdit);
+
+  return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto animate-fadeIn">
       <div className="bg-white rounded-3xl border border-[#d59a9e]/40 shadow-2xl max-w-lg w-full overflow-hidden my-8">
         {/* Modal Header */}
@@ -227,215 +438,13 @@ export function ProductModal({
           </button>
         </div>
 
-        {/* Modal Body / Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-          {errorMsg && (
-            <div className="p-3.5 rounded-2xl bg-[#d62934]/10 border border-[#d62934]/30 flex items-start gap-2.5 text-xs text-[#81181f]">
-              <AlertCircle className="w-4 h-4 text-[#d62934] shrink-0 mt-0.5" />
-              <span>{errorMsg}</span>
-            </div>
-          )}
-
-          {/* 1. Foto Produk */}
-          <div>
-            <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-2">
-              Foto Produk Jajanan
-            </label>
-            <div className="flex items-center gap-4">
-              <div className="relative w-20 h-20 rounded-2xl bg-[#efe6e6] border-2 border-dashed border-[#d59a9e] flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
-                {previewUrl ? (
-                  <img
-                    src={previewUrl}
-                    alt="Preview"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <ImageIcon className="w-8 h-8 text-[#d59a9e]" />
-                )}
-              </div>
-
-              <div className="flex-1 space-y-1.5">
-                <label className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#efe6e6] hover:bg-[#d59a9e]/30 text-[#81181f] text-xs font-bold border border-[#d59a9e]/50 cursor-pointer transition-all">
-                  <Upload className="w-3.5 h-3.5" />
-                  <span>{previewUrl ? "Ganti Foto" : "Pilih Foto Produk"}</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileChange}
-                    className="hidden"
-                  />
-                </label>
-                {previewUrl && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedFile(null);
-                      setPreviewUrl(null);
-                      setFotoUrl(null);
-                    }}
-                    className="block text-[11px] text-[#d62934] font-semibold hover:underline"
-                  >
-                    Hapus Foto
-                  </button>
-                )}
-                <p className="text-[11px] text-zinc-400">
-                  Format JPG, PNG, atau WebP (Maks. 3MB)
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* 2. Nama Produk */}
-          <div>
-            <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1.5">
-              Nama Jajanan / Produk *
-            </label>
-            <input
-              type="text"
-              required
-              value={nama}
-              onChange={(e) => setNama(e.target.value)}
-              placeholder="Contoh: Risoles Mayo Spesial"
-              className="input-field"
-            />
-          </div>
-
-          {/* 3. Kategori */}
-          <div>
-            <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1.5">
-              Kategori Jajanan
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 mb-2">
-              {DEFAULT_CATEGORIES.map((cat) => (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => setKategori(cat)}
-                  className={`py-1.5 px-2 rounded-xl text-xs font-semibold border transition-all text-center ${
-                    kategori === cat
-                      ? "bg-[#d62934] text-white border-[#d62934] shadow-xs"
-                      : "bg-[#efe6e6]/50 text-[#81181f] border-[#d59a9e]/40 hover:bg-[#efe6e6]"
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-
-            {kategori === "Lainnya" && (
-              <input
-                type="text"
-                value={customKategori}
-                onChange={(e) => setCustomKategori(e.target.value)}
-                placeholder="Tulis nama kategori kustom..."
-                className="input-field mt-2"
-              />
-            )}
-          </div>
-
-          {/* 4. Harga Jual & Modal */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1.5">
-                Harga Jual (Rp) *
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  required
-                  value={hargaJualStr ? formatRupiah(hargaJual) : ""}
-                  onChange={(e) => setHargaJualStr(e.target.value)}
-                  placeholder="Rp 0"
-                  className="input-field"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1.5">
-                Harga Modal (Rp) *
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  required
-                  value={hargaModalStr ? formatRupiah(hargaModal) : ""}
-                  onChange={(e) => setHargaModalStr(e.target.value)}
-                  placeholder="Rp 0"
-                  className="input-field"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Live Profit Insight Card */}
-          <div className="p-3.5 rounded-2xl bg-[#efe6e6]/60 border border-[#d59a9e]/40 grid grid-cols-2 gap-3 text-xs">
-            <div>
-              <span className="text-zinc-500 block">Estimasi Laba / Porsi:</span>
-              <span
-                className={`font-extrabold text-sm ${
-                  labaPerItem >= 0 ? "text-[#0c6b57]" : "text-[#d62934]"
-                }`}
-              >
-                {formatRupiah(labaPerItem)}
-              </span>
-            </div>
-            <div className="text-right">
-              <span className="text-zinc-500 block">Margin Keuntungan:</span>
-              <span
-                className={`inline-flex items-center gap-1 font-extrabold text-sm ${
-                  marginPercent >= 0 ? "text-[#0c6b57]" : "text-[#d62934]"
-                }`}
-              >
-                <TrendingUp className="w-3.5 h-3.5" />
-                {marginPercent}%
-              </span>
-            </div>
-          </div>
-
-          {/* 5. Stok Jajanan */}
-          <div>
-            <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1.5">
-              Stok Tersedia (Porsi / Pcs) *
-            </label>
-            <input
-              type="number"
-              min="0"
-              required
-              value={stokStr}
-              onChange={(e) => setStokStr(e.target.value)}
-              placeholder="0"
-              className="input-field"
-            />
-          </div>
-
-          {/* Modal Actions */}
-          <div className="pt-4 border-t border-[#efe6e6] flex items-center justify-end gap-2.5">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={loading}
-              className="px-4 py-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-xs font-bold transition-all cursor-pointer"
-            >
-              Batal
-            </button>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-6 py-2.5 rounded-xl bg-linear-to-r from-[#d62934] to-[#81181f] text-white text-xs font-bold shadow-md shadow-[#d62934]/25 hover:opacity-95 active:scale-98 transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer"
-            >
-              {loading ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <>
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>{isEditing ? "Simpan Perubahan" : "Tambah Produk"}</span>
-                </>
-              )}
-            </button>
-          </div>
-        </form>
+        {/* Modal Form keyed by edit ID to cleanly initialize state without effects */}
+        <ProductFormContent
+          key={productToEdit?.id || "new-product"}
+          productToEdit={productToEdit}
+          onClose={onClose}
+          onSuccess={onSuccess}
+        />
       </div>
     </div>
   );
