@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatRupiah, formatTanggal } from "@/lib/utils";
 import { ReceiptModal } from "@/components/kasir/ReceiptModal";
-import { TransactionResult } from "@/app/kasir/actions";
+import { TransactionResult, cancelTransactionAction } from "@/app/kasir/actions";
 import { PaymentMethod } from "@/types/database";
 import {
   History,
@@ -16,6 +16,9 @@ import {
   QrCode,
   Banknote,
   Search,
+  RotateCcw,
+  AlertTriangle,
+  Clock,
 } from "lucide-react";
 
 interface TransaksiWithItems {
@@ -43,61 +46,94 @@ export function TodayHistoryView() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedReceipt, setSelectedReceipt] = useState<TransactionResult | null>(null);
 
+  // Cancellation State
+  const [trxToCancel, setTrxToCancel] = useState<TransaksiWithItems | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  // Update current time every 30s to refresh 5-minute countdowns
   useEffect(() => {
-    let isMounted = true;
+    const timer = setInterval(() => setCurrentTime(Date.now()), 30000);
+    return () => clearInterval(timer);
+  }, []);
 
-    async function loadTodayHistory() {
-      setLoading(true);
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+  const loadTodayHistory = useCallback(async () => {
+    setLoading(true);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-        if (!user) return;
+      if (!user) return;
 
-        // Ambil tanggal mulai hari ini (00:00:00)
-        const todayStart = new Date();
-        todayStart.setHours(0, 0, 0, 0);
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
 
-        const { data, error } = await supabase
-          .from("transaksi")
-          .select(`
+      const { data, error } = await supabase
+        .from("transaksi")
+        .select(`
+          id,
+          kasir_id,
+          tanggal,
+          total,
+          metode_bayar,
+          transaksi_item (
             id,
-            kasir_id,
-            tanggal,
-            total,
-            metode_bayar,
-            transaksi_item (
-              id,
-              qty,
-              harga_saat_jual,
-              subtotal,
-              produk (
-                nama
-              )
+            qty,
+            harga_saat_jual,
+            subtotal,
+            produk (
+              nama
             )
-          `)
-          .eq("kasir_id", user.id)
-          .gte("tanggal", todayStart.toISOString())
-          .order("tanggal", { ascending: false });
+          )
+        `)
+        .eq("kasir_id", user.id)
+        .gte("tanggal", todayStart.toISOString())
+        .order("tanggal", { ascending: false });
 
-        if (error) throw error;
-        if (isMounted) {
-          setTransactions((data as unknown as TransaksiWithItems[]) || []);
-        }
-      } catch (err: unknown) {
-        console.error("Error loading today's cashier history:", err);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
+      if (error) throw error;
+      setTransactions((data as unknown as TransaksiWithItems[]) || []);
+    } catch (err: unknown) {
+      console.error("Error loading today's cashier history:", err);
+    } finally {
+      setLoading(false);
     }
-
-    loadTodayHistory();
-
-    return () => {
-      isMounted = false;
-    };
   }, [supabase]);
+
+  useEffect(() => {
+    loadTodayHistory();
+  }, [loadTodayHistory]);
+
+  // Handle Confirm Cancel
+  const handleConfirmCancel = async () => {
+    if (!trxToCancel) return;
+    setIsCancelling(true);
+
+    try {
+      const res = await cancelTransactionAction(trxToCancel.id);
+      if (!res.success) {
+        alert(res.error || "Gagal membatalkan transaksi.");
+        return;
+      }
+
+      alert("Transaksi berhasil dibatalkan dan stok produk telah dikembalikan ke etalase.");
+      setTransactions((prev) => prev.filter((t) => t.id !== trxToCancel.id));
+      setTrxToCancel(null);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Terjadi kesalahan";
+      alert(msg);
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  // Helper cek sisa menit pembatalan
+  const getCancelTimeLeftMinutes = (tanggal: string) => {
+    const diffMs = currentTime - new Date(tanggal).getTime();
+    const remainingMs = 5 * 60 * 1000 - diffMs;
+    if (remainingMs <= 0) return 0;
+    return Math.ceil(remainingMs / 60000);
+  };
 
   // Calculations for today's summary
   const totalOmzet = transactions.reduce((acc, t) => acc + (t.total || 0), 0);
@@ -139,7 +175,6 @@ export function TodayHistoryView() {
       {/* Summary KPI Banner */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         <div className="p-5 rounded-3xl bg-linear-to-br from-[#81181f] to-primary-hover text-white shadow-md shadow-[#81181f]/15 flex items-center justify-between">
-
           <div>
             <span className="text-xs font-bold text-white/80 uppercase tracking-wider block mb-1">
               Omzet Saya Hari Ini
@@ -166,7 +201,7 @@ export function TodayHistoryView() {
               {totalTrxCount} <span className="text-sm font-normal text-zinc-400">transaksi</span>
             </p>
             <p className="text-[11px] text-zinc-400 mt-1">
-              Tercatat otomatis di akun Anda
+              Tercatat otomatis di akun kasir Anda
             </p>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-[#efe6e6] text-[#d62934] flex items-center justify-center border border-[#d59a9e]/30">
@@ -215,60 +250,87 @@ export function TodayHistoryView() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filteredTransactions.map((t) => (
-            <div
-              key={t.id}
-              className="bg-white rounded-2xl border border-[#d59a9e]/30 p-4 shadow-2xs hover:shadow-sm transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-            >
-              <div className="space-y-1.5 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-xs font-bold text-zinc-900">
-                    ID: #{t.id.substring(0, 8)}
-                  </span>
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#efe6e6] text-[#81181f] text-[10px] font-bold uppercase border border-[#d59a9e]/30">
-                    {renderPaymentIcon(t.metode_bayar)}
-                    {t.metode_bayar}
-                  </span>
-                  <span className="text-[11px] text-zinc-400">
-                    {formatTanggal(t.tanggal)}
-                  </span>
-                </div>
+          {filteredTransactions.map((t) => {
+            const cancelMinutesLeft = getCancelTimeLeftMinutes(t.tanggal);
+            const canCancel = cancelMinutesLeft > 0;
 
-                {/* Items Summary preview */}
-                <div className="text-xs text-zinc-600 flex flex-wrap gap-1">
-                  {t.transaksi_item?.map((item, idx) => (
-                    <span
-                      key={item.id || idx}
-                      className="inline-block bg-zinc-50 px-2 py-0.5 rounded-lg border border-zinc-200 text-[11px]"
-                    >
-                      {item.produk?.nama || "Jajanan"} ({item.qty}x)
+            return (
+              <div
+                key={t.id}
+                className="bg-white rounded-2xl border border-[#d59a9e]/30 p-4 shadow-2xs hover:shadow-sm transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              >
+                <div className="space-y-1.5 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-mono text-xs font-bold text-zinc-900">
+                      ID: #{t.id.substring(0, 8)}
                     </span>
-                  ))}
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#efe6e6] text-[#81181f] text-[10px] font-bold uppercase border border-[#d59a9e]/30">
+                      {renderPaymentIcon(t.metode_bayar)}
+                      {t.metode_bayar}
+                    </span>
+                    <span className="text-[11px] text-zinc-400">
+                      {formatTanggal(t.tanggal)}
+                    </span>
+
+                    {/* Badge Sisa Waktu Pembatalan */}
+                    {canCancel && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold animate-pulse">
+                        <Clock className="w-3 h-3 text-amber-600" />
+                        <span>Bisa batal ({cancelMinutesLeft}m)</span>
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Items Summary preview */}
+                  <div className="text-xs text-zinc-600 flex flex-wrap gap-1">
+                    {t.transaksi_item?.map((item, idx) => (
+                      <span
+                        key={item.id || idx}
+                        className="inline-block bg-zinc-50 px-2 py-0.5 rounded-lg border border-zinc-200 text-[11px]"
+                      >
+                        {item.produk?.nama || "Jajanan"} ({item.qty}x)
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Total & Action Buttons */}
+                <div className="flex items-center justify-between sm:justify-end gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-100">
+                  <div className="text-right mr-1">
+                    <span className="text-[10px] text-zinc-400 block leading-tight">
+                      Total
+                    </span>
+                    <span className="font-extrabold text-sm sm:text-base text-[#81181f]">
+                      {formatRupiah(t.total)}
+                    </span>
+                  </div>
+
+                  {/* Cancel Button (5 Menit Terakhir) */}
+                  {canCancel && (
+                    <button
+                      type="button"
+                      onClick={() => setTrxToCancel(t)}
+                      title="Batalkan transaksi ini dan kembalikan stok produk"
+                      className="inline-flex items-center gap-1 px-2.5 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-[#d62934] text-xs font-bold border border-red-200 transition-all cursor-pointer"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span className="hidden md:inline">Batalkan</span>
+                    </button>
+                  )}
+
+                  {/* View Receipt Button */}
+                  <button
+                    type="button"
+                    onClick={() => handleOpenReceipt(t)}
+                    className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-[#efe6e6] hover:bg-[#d59a9e]/30 text-[#81181f] text-xs font-bold border border-[#d59a9e]/40 transition-all cursor-pointer"
+                  >
+                    <Eye className="w-3.5 h-3.5 text-[#d62934]" />
+                    <span>Struk</span>
+                  </button>
                 </div>
               </div>
-
-              {/* Total & Action */}
-              <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-100">
-                <div className="text-right">
-                  <span className="text-[10px] text-zinc-400 block leading-tight">
-                    Total Transaksi
-                  </span>
-                  <span className="font-extrabold text-sm sm:text-base text-[#81181f]">
-                    {formatRupiah(t.total)}
-                  </span>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => handleOpenReceipt(t)}
-                  className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-[#efe6e6] hover:bg-[#d59a9e]/30 text-[#81181f] text-xs font-bold border border-[#d59a9e]/40 transition-all cursor-pointer"
-                >
-                  <Eye className="w-3.5 h-3.5 text-[#d62934]" />
-                  <span>Struk</span>
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -277,7 +339,60 @@ export function TodayHistoryView() {
         isOpen={Boolean(selectedReceipt)}
         onClose={() => setSelectedReceipt(null)}
         data={selectedReceipt}
+        onTransactionCancelled={loadTodayHistory}
       />
+
+      {/* Modal Konfirmasi Pembatalan Transaksi */}
+      {trxToCancel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-3xl border border-red-200 shadow-2xl max-w-sm w-full p-6 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-red-100 text-[#d62934] flex items-center justify-center mx-auto mb-3">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-extrabold text-[#81181f]">
+              Batalkan Transaksi #{trxToCancel.id.substring(0, 8)}?
+            </h3>
+            <p className="text-xs text-zinc-500 mt-1 mb-4 leading-relaxed">
+              Transaksi sebesar <strong>{formatRupiah(trxToCancel.total)}</strong> akan dihapus dan stok produk akan <strong>dikembalikan secara otomatis ke etalase</strong>.
+            </p>
+
+            <div className="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 text-left text-xs mb-5 space-y-1">
+              <span className="text-[10px] font-bold text-zinc-400 uppercase block mb-1">
+                Stok yang akan dikembalikan:
+              </span>
+              {trxToCancel.transaksi_item?.map((item, idx) => (
+                <div key={idx} className="flex justify-between font-semibold text-zinc-700">
+                  <span>{item.produk?.nama || "Produk"}</span>
+                  <span className="text-[#0c6b57]">+{item.qty} porsi</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => setTrxToCancel(null)}
+                disabled={isCancelling}
+                className="py-2.5 px-4 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-xs font-bold transition-all cursor-pointer"
+              >
+                Kembali
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCancel}
+                disabled={isCancelling}
+                className="py-2.5 px-4 rounded-xl bg-[#d62934] hover:bg-[#81181f] text-white text-xs font-bold shadow-md shadow-[#d62934]/30 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                {isCancelling ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <span>Ya, Batalkan</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

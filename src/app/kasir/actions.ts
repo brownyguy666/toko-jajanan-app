@@ -21,6 +21,7 @@ export interface TransactionPayload {
 export interface TransactionResult {
   success: boolean;
   error?: string;
+  message?: string;
   transaksiId?: string;
   tanggal?: string;
   total?: number;
@@ -45,6 +46,7 @@ interface ProductDbRow {
 
 interface ProfileDbRow {
   nama: string;
+  role: string;
   status_aktif: boolean;
 }
 
@@ -72,7 +74,7 @@ export async function processTransactionAction(
     // 1. Ambil data kasir
     const { data: profileData } = await admin
       .from("profiles")
-      .select("nama, status_aktif")
+      .select("nama, role, status_aktif")
       .eq("id", user.id)
       .single();
 
@@ -198,6 +200,7 @@ export async function processTransactionAction(
 
     revalidatePath("/kasir");
     revalidatePath("/dashboard/produk");
+    revalidatePath("/dashboard");
     revalidatePath("/admin");
 
     return {
@@ -219,6 +222,131 @@ export async function processTransactionAction(
   } catch (err: unknown) {
     console.error("Error in processTransactionAction:", err);
     const message = err instanceof Error ? err.message : "Terjadi kesalahan sistem saat memproses transaksi.";
+    return {
+      success: false,
+      error: message,
+    };
+  }
+}
+
+/**
+ * Server Action: Batalkan transaksi dalam 5 menit terakhir & kembalikan stok
+ */
+export async function cancelTransactionAction(
+  transaksiId: string
+): Promise<{ success: boolean; error?: string; message?: string }> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { success: false, error: "Sesi login berakhir. Silakan login kembali." };
+    }
+
+    const admin = createAdminClient();
+
+    // 1. Ambil data profil
+    const { data: profileData } = await admin
+      .from("profiles")
+      .select("role, status_aktif")
+      .eq("id", user.id)
+      .single();
+
+    const userProfile = profileData as unknown as ProfileDbRow | null;
+    if (!userProfile || !userProfile.status_aktif) {
+      return { success: false, error: "Akun Anda tidak aktif atau tidak memiliki izin." };
+    }
+
+    // 2. Ambil data transaksi
+    const { data: trxData, error: trxErr } = await admin
+      .from("transaksi")
+      .select("id, kasir_id, tanggal, total")
+      .eq("id", transaksiId)
+      .single();
+
+    if (trxErr || !trxData) {
+      return { success: false, error: "Transaksi tidak ditemukan di sistem." };
+    }
+
+    const trx = trxData as unknown as {
+      id: string;
+      kasir_id: string;
+      tanggal: string;
+      total: number;
+    };
+
+    // Validasi hak akses (Hanya kasir yang bersangkutan atau Owner yang boleh membatalkan)
+    if (trx.kasir_id !== user.id && userProfile.role !== "owner") {
+      return {
+        success: false,
+        error: "Anda hanya dapat membatalkan transaksi yang Anda buat sendiri.",
+      };
+    }
+
+    // 3. Validasi batas waktu 5 menit (300 detik + 15 detik toleransi)
+    const trxTime = new Date(trx.tanggal).getTime();
+    const now = Date.now();
+    const diffMs = now - trxTime;
+    const maxAllowedMs = 5 * 60 * 1000 + 15000; // 5 menit 15 detik
+
+    if (diffMs > maxAllowedMs) {
+      const minutesAgo = Math.floor(diffMs / 60000);
+      return {
+        success: false,
+        error: `Transaksi telah dibuat ${minutesAgo} menit yang lalu. Pembatalan hanya diizinkan dalam 5 menit pertama.`,
+      };
+    }
+
+    // 4. Ambil item transaksi untuk mengembalikan stok
+    const { data: itemsData, error: itemsErr } = await admin
+      .from("transaksi_item")
+      .select("produk_id, qty")
+      .eq("transaksi_id", transaksiId);
+
+    if (itemsErr) {
+      throw new Error(`Gagal membaca rincian item transaksi: ${itemsErr.message}`);
+    }
+
+    const items = (itemsData as unknown as { produk_id: string; qty: number }[]) || [];
+
+    // 5. Kembalikan stok setiap produk di database
+    for (const item of items) {
+      const { data: pData } = await admin
+        .from("produk")
+        .select("stok")
+        .eq("id", item.produk_id)
+        .single();
+
+      const currentStock = (pData as unknown as { stok: number } | null)?.stok ?? 0;
+      const restoredStock = currentStock + item.qty;
+
+      await admin
+        .from("produk")
+        .update({
+          stok: restoredStock,
+          updated_at: new Date().toISOString(),
+        } as never)
+        .eq("id", item.produk_id);
+    }
+
+    // 6. Hapus baris transaksi_item dan transaksi
+    await admin.from("transaksi_item").delete().eq("transaksi_id", transaksiId);
+    await admin.from("transaksi").delete().eq("id", transaksiId);
+
+    revalidatePath("/kasir");
+    revalidatePath("/dashboard/produk");
+    revalidatePath("/dashboard");
+    revalidatePath("/admin");
+
+    return {
+      success: true,
+      message: "Transaksi berhasil dibatalkan dan seluruh stok produk telah dikembalikan ke etalase.",
+    };
+  } catch (err: unknown) {
+    console.error("Error in cancelTransactionAction:", err);
+    const message = err instanceof Error ? err.message : "Terjadi kesalahan saat membatalkan transaksi.";
     return {
       success: false,
       error: message,
