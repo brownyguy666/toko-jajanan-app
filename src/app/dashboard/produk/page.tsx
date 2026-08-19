@@ -12,7 +12,6 @@ import {
   Plus,
   FileSpreadsheet,
   Search,
-  Filter,
   Edit2,
   Trash2,
   AlertTriangle,
@@ -21,8 +20,6 @@ import {
   DollarSign,
   UtensilsCrossed,
   Image as ImageIcon,
-  CheckCircle2,
-  RefreshCw,
   PowerOff,
 } from "lucide-react";
 
@@ -34,6 +31,7 @@ export default function ProdukManagementPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("Semua");
   const [stockFilter, setStockFilter] = useState<"all" | "in_stock" | "low_stock" | "out_of_stock">("all");
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Modal states
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -44,26 +42,40 @@ export default function ProdukManagementPage() {
   const [productToDelete, setProductToDelete] = useState<Produk | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const fetchProducts = useCallback(async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("produk")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setProducts((data as Produk[]) || []);
-    } catch (err: any) {
-      console.error("Error loading products:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [supabase]);
+  const refetch = useCallback(() => {
+    setRefreshTrigger((prev) => prev + 1);
+  }, []);
 
   useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
+    let isMounted = true;
+
+    async function loadData() {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("produk")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+        if (isMounted) {
+          setProducts((data as Produk[]) || []);
+        }
+      } catch (err: unknown) {
+        console.error("Error loading products:", err);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [supabase, refreshTrigger]);
 
   // Handle delete product
   const handleDeleteProduct = async () => {
@@ -80,9 +92,10 @@ export default function ProdukManagementPage() {
 
       setProducts((prev) => prev.filter((p) => p.id !== productToDelete.id));
       setProductToDelete(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error deleting product:", err);
-      alert(`Gagal menghapus produk: ${err.message}`);
+      const msg = err instanceof Error ? err.message : "Terjadi kesalahan";
+      alert(`Gagal menghapus produk: ${msg}`);
     } finally {
       setIsDeleting(false);
     }
@@ -92,8 +105,9 @@ export default function ProdukManagementPage() {
   const handleToggleStockZero = async (product: Produk) => {
     try {
       const newStock = product.stok > 0 ? 0 : 20;
-      const { error } = await (supabase.from("produk") as any)
-        .update({ stok: newStock, updated_at: new Date().toISOString() })
+      const { error } = await supabase
+        .from("produk")
+        .update({ stok: newStock, updated_at: new Date().toISOString() } as never)
         .eq("id", product.id);
 
       if (error) throw error;
@@ -101,10 +115,10 @@ export default function ProdukManagementPage() {
       setProducts((prev) =>
         prev.map((p) => (p.id === product.id ? { ...p, stok: newStock } : p))
       );
-
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error updating stock:", err);
-      alert(`Gagal mengubah stok: ${err.message}`);
+      const msg = err instanceof Error ? err.message : "Terjadi kesalahan";
+      alert(`Gagal mengubah stok: ${msg}`);
     }
   };
 
@@ -190,7 +204,7 @@ export default function ProdukManagementPage() {
                 setProductToEdit(null);
                 setIsProductModalOpen(true);
               }}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-[#d62934] to-[#81181f] text-white text-xs font-bold shadow-md shadow-[#d62934]/25 hover:opacity-95 active:scale-98 transition-all touch-btn cursor-pointer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-linear-to-r from-[#d62934] to-[#81181f] text-white text-xs font-bold shadow-md shadow-[#d62934]/25 hover:opacity-95 active:scale-98 transition-all touch-btn cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>Tambah Produk Baru</span>
@@ -268,7 +282,7 @@ export default function ProdukManagementPage() {
               <button
                 type="button"
                 onClick={() => setStockFilter("all")}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                   stockFilter === "all"
                     ? "bg-[#81181f] text-white"
                     : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
@@ -279,7 +293,7 @@ export default function ProdukManagementPage() {
               <button
                 type="button"
                 onClick={() => setStockFilter("in_stock")}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                   stockFilter === "in_stock"
                     ? "bg-[#0c6b57] text-white"
                     : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
@@ -290,7 +304,7 @@ export default function ProdukManagementPage() {
               <button
                 type="button"
                 onClick={() => setStockFilter("low_stock")}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                   stockFilter === "low_stock"
                     ? "bg-amber-600 text-white"
                     : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
@@ -301,7 +315,7 @@ export default function ProdukManagementPage() {
               <button
                 type="button"
                 onClick={() => setStockFilter("out_of_stock")}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                   stockFilter === "out_of_stock"
                     ? "bg-[#d62934] text-white"
                     : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
@@ -322,7 +336,7 @@ export default function ProdukManagementPage() {
                 key={cat}
                 type="button"
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                   selectedCategory === cat
                     ? "bg-[#d62934] text-white shadow-2xs"
                     : "bg-[#efe6e6]/60 text-[#81181f] border border-[#d59a9e]/30 hover:bg-[#efe6e6]"
@@ -364,14 +378,14 @@ export default function ProdukManagementPage() {
                   setProductToEdit(null);
                   setIsProductModalOpen(true);
                 }}
-                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#d62934] to-[#81181f] text-white text-xs font-bold shadow-sm hover:opacity-95"
+                className="px-4 py-2.5 rounded-xl bg-linear-to-r from-[#d62934] to-[#81181f] text-white text-xs font-bold shadow-sm hover:opacity-95 cursor-pointer"
               >
                 + Tambah Produk Manual
               </button>
               <button
                 type="button"
                 onClick={() => setIsImportModalOpen(true)}
-                className="px-4 py-2.5 rounded-xl bg-[#efe6e6] hover:bg-[#d59a9e]/30 text-[#81181f] text-xs font-bold border border-[#d59a9e]/40"
+                className="px-4 py-2.5 rounded-xl bg-[#efe6e6] hover:bg-[#d59a9e]/30 text-[#81181f] text-xs font-bold border border-[#d59a9e]/40 cursor-pointer"
               >
                 Import dari Excel / CSV
               </button>
@@ -536,7 +550,7 @@ export default function ProdukManagementPage() {
       <ProductModal
         isOpen={isProductModalOpen}
         onClose={() => setIsProductModalOpen(false)}
-        onSuccess={() => fetchProducts()}
+        onSuccess={refetch}
         productToEdit={productToEdit}
       />
 
@@ -544,7 +558,7 @@ export default function ProdukManagementPage() {
       <ImportModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
-        onSuccess={() => fetchProducts()}
+        onSuccess={refetch}
       />
 
       {/* Modal Konfirmasi Hapus Produk */}
@@ -574,7 +588,7 @@ export default function ProdukManagementPage() {
                 type="button"
                 onClick={handleDeleteProduct}
                 disabled={isDeleting}
-                className="py-2.5 px-4 rounded-xl bg-[#d62934] hover:bg-[#ba1f29] text-white text-xs font-bold shadow-md shadow-[#d62934]/30 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                className="py-2.5 px-4 rounded-xl bg-[#d62934] hover:bg-[#81181f] text-white text-xs font-bold shadow-md shadow-[#d62934]/30 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 {isDeleting ? (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

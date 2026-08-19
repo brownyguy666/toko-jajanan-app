@@ -14,7 +14,6 @@ import {
   AlertCircle,
   FileText,
   Trash2,
-  ArrowRight,
 } from "lucide-react";
 
 interface ImportModalProps {
@@ -63,26 +62,26 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
     document.body.removeChild(link);
   };
 
-  const normalizeRow = (rawRow: any): ParsedProduct => {
+  const normalizeRow = (rawRow: Record<string, unknown>): ParsedProduct => {
     // Normalisasi kunci objek (lowercase tanpa spasi atau underscore berlebih)
-    const normalizedKeys: { [key: string]: any } = {};
+    const normalizedKeys: Record<string, unknown> = {};
     Object.keys(rawRow).forEach((k) => {
       const cleanKey = k.toLowerCase().trim().replace(/\s+/g, "_");
       normalizedKeys[cleanKey] = rawRow[k];
     });
 
-    const nama = (
+    const nama = String(
       normalizedKeys["nama"] ||
       normalizedKeys["nama_produk"] ||
       normalizedKeys["produk"] ||
       ""
-    ).toString().trim();
+    ).trim();
 
-    const kategori = (
+    const kategori = String(
       normalizedKeys["kategori"] ||
       normalizedKeys["category"] ||
       "Lainnya"
-    ).toString().trim() || "Lainnya";
+    ).trim() || "Lainnya";
 
     const rawJual = normalizedKeys["harga_jual"] ?? normalizedKeys["hargajual"] ?? normalizedKeys["harga"] ?? 0;
     const rawModal = normalizedKeys["harga_modal"] ?? normalizedKeys["hargamodal"] ?? normalizedKeys["modal"] ?? 0;
@@ -132,7 +131,7 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
     const fileName = f.name.toLowerCase();
 
     if (fileName.endsWith(".csv")) {
-      Papa.parse(f, {
+      Papa.parse<Record<string, unknown>>(f, {
         header: true,
         skipEmptyLines: true,
         complete: (results) => {
@@ -143,7 +142,7 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
             setErrorMsg("File CSV kosong atau tidak memiliki format header yang valid.");
           }
         },
-        error: (err) => {
+        error: (err: Error) => {
           setErrorMsg(`Gagal membaca file CSV: ${err.message}`);
         },
       });
@@ -155,7 +154,7 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
           const wb = XLSX.read(bstr, { type: "binary" });
           const firstSheetName = wb.SheetNames[0];
           const ws = wb.Sheets[firstSheetName];
-          const data = XLSX.utils.sheet_to_json(ws);
+          const data = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws);
 
           if (data && data.length > 0) {
             const parsed = data.map(normalizeRow);
@@ -163,8 +162,9 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
           } else {
             setErrorMsg("File Excel kosong atau sheet pertama tidak berisi data.");
           }
-        } catch (err: any) {
-          setErrorMsg(`Gagal memproses file Excel: ${err.message}`);
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : "Gagal memproses file Excel.";
+          setErrorMsg(message);
         }
       };
       reader.readAsBinaryString(f);
@@ -193,7 +193,7 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
         foto_url: null,
       }));
 
-      const { error } = await (supabase.from("produk") as any).insert(rowsToInsert);
+      const { error } = await supabase.from("produk").insert(rowsToInsert as never);
 
       if (error) throw error;
 
@@ -202,9 +202,10 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
         onSuccess();
         onClose();
       }, 1200);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error bulk inserting products:", err);
-      setErrorMsg(err.message || "Gagal mengimpor produk ke database.");
+      const message = err instanceof Error ? err.message : "Gagal mengimpor produk ke database.";
+      setErrorMsg(message);
     } finally {
       setLoading(false);
     }
@@ -217,7 +218,7 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto animate-fadeIn">
       <div className="bg-white rounded-3xl border border-[#d59a9e]/40 shadow-2xl max-w-2xl w-full overflow-hidden my-8 flex flex-col max-h-[90vh]">
         {/* Modal Header */}
-        <div className="bg-gradient-to-r from-[#81181f] to-[#d62934] text-white px-6 py-4 flex items-center justify-between">
+        <div className="bg-linear-to-r from-[#81181f] to-[#d62934] text-white px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center border border-white/20">
               <FileSpreadsheet className="w-4 h-4 text-white" />
@@ -306,7 +307,7 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
                     setErrorMsg(null);
                     setSuccessCount(null);
                   }}
-                  className="text-zinc-400 hover:text-[#d62934] p-1 rounded-lg"
+                  className="text-zinc-400 hover:text-[#d62934] p-1 rounded-lg cursor-pointer"
                   title="Ganti File"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -411,7 +412,7 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
               type="button"
               onClick={handleImportSubmit}
               disabled={loading || successCount !== null}
-              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#d62934] to-[#81181f] text-white text-xs font-bold shadow-md shadow-[#d62934]/25 hover:opacity-95 active:scale-98 transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+              className="px-6 py-2.5 rounded-xl bg-linear-to-r from-[#d62934] to-[#81181f] text-white text-xs font-bold shadow-md shadow-[#d62934]/25 hover:opacity-95 active:scale-98 transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer"
             >
               {loading ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

@@ -8,13 +8,10 @@ import {
   X,
   Upload,
   Image as ImageIcon,
-  DollarSign,
   TrendingUp,
   Package,
-  Layers,
   AlertCircle,
   CheckCircle2,
-  Trash2,
 } from "lucide-react";
 
 interface ProductModalProps {
@@ -61,38 +58,35 @@ export function ProductModal({
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Reset or populate fields when modal opens/changes
+  // Populate fields when productToEdit changes
   useEffect(() => {
-    if (isOpen) {
-      setErrorMsg(null);
-      setSelectedFile(null);
-
-      if (productToEdit) {
-        setNama(productToEdit.nama);
-        if (DEFAULT_CATEGORIES.includes(productToEdit.kategori)) {
-          setKategori(productToEdit.kategori);
-          setCustomKategori("");
-        } else {
-          setKategori("Lainnya");
-          setCustomKategori(productToEdit.kategori);
-        }
-        setHargaJualStr(productToEdit.harga_jual.toString());
-        setHargaModalStr(productToEdit.harga_modal.toString());
-        setStokStr(productToEdit.stok.toString());
-        setFotoUrl(productToEdit.foto_url);
-        setPreviewUrl(productToEdit.foto_url);
-      } else {
-        setNama("");
-        setKategori("Gorengan");
+    if (productToEdit) {
+      setNama(productToEdit.nama);
+      if (DEFAULT_CATEGORIES.includes(productToEdit.kategori)) {
+        setKategori(productToEdit.kategori);
         setCustomKategori("");
-        setHargaJualStr("");
-        setHargaModalStr("");
-        setStokStr("20");
-        setFotoUrl(null);
-        setPreviewUrl(null);
+      } else {
+        setKategori("Lainnya");
+        setCustomKategori(productToEdit.kategori);
       }
+      setHargaJualStr(productToEdit.harga_jual.toString());
+      setHargaModalStr(productToEdit.harga_modal.toString());
+      setStokStr(productToEdit.stok.toString());
+      setFotoUrl(productToEdit.foto_url);
+      setPreviewUrl(productToEdit.foto_url);
+    } else {
+      setNama("");
+      setKategori("Gorengan");
+      setCustomKategori("");
+      setHargaJualStr("");
+      setHargaModalStr("");
+      setStokStr("20");
+      setFotoUrl(null);
+      setPreviewUrl(null);
     }
-  }, [isOpen, productToEdit]);
+    setErrorMsg(null);
+    setSelectedFile(null);
+  }, [productToEdit, isOpen]);
 
   if (!isOpen) return null;
 
@@ -148,7 +142,8 @@ export function ProductModal({
       // Upload file to Supabase Storage jika ada file baru yang dipilih
       if (selectedFile) {
         const fileExt = selectedFile.name.split(".").pop() || "jpg";
-        const fileName = `produk-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const uniqueId = window.crypto?.randomUUID ? window.crypto.randomUUID() : `${Date.now()}`;
+        const fileName = `produk-${uniqueId}.${fileExt}`;
         const filePath = `${fileName}`;
 
         const { error: uploadError } = await supabase.storage
@@ -171,7 +166,8 @@ export function ProductModal({
 
       if (isEditing && productToEdit) {
         // UPDATE PRODUK
-        const { error: updateError } = await (supabase.from("produk") as any)
+        const { error: updateError } = await supabase
+          .from("produk")
           .update({
             nama: nama.trim(),
             kategori: finalKategori,
@@ -180,30 +176,30 @@ export function ProductModal({
             stok: stok,
             foto_url: finalFotoUrl,
             updated_at: new Date().toISOString(),
-          })
+          } as never)
           .eq("id", productToEdit.id);
 
         if (updateError) throw updateError;
       } else {
         // INSERT PRODUK BARU
-        const { error: insertError } = await (supabase.from("produk") as any).insert({
+        const { error: insertError } = await supabase.from("produk").insert({
           nama: nama.trim(),
           kategori: finalKategori,
           harga_jual: hargaJual,
           harga_modal: hargaModal,
           stok: stok,
           foto_url: finalFotoUrl,
-        });
+        } as never);
 
         if (insertError) throw insertError;
       }
 
-
       onSuccess();
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error saving product:", err);
-      setErrorMsg(err.message || "Gagal menyimpan produk. Periksa kembali data.");
+      const message = err instanceof Error ? err.message : "Gagal menyimpan produk.";
+      setErrorMsg(message);
     } finally {
       setLoading(false);
     }
@@ -213,7 +209,7 @@ export function ProductModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto animate-fadeIn">
       <div className="bg-white rounded-3xl border border-[#d59a9e]/40 shadow-2xl max-w-lg w-full overflow-hidden my-8">
         {/* Modal Header */}
-        <div className="bg-gradient-to-r from-[#81181f] to-[#d62934] text-white px-6 py-4 flex items-center justify-between">
+        <div className="bg-linear-to-r from-[#81181f] to-[#d62934] text-white px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center border border-white/20">
               <Package className="w-4 h-4 text-white" />
@@ -427,7 +423,7 @@ export function ProductModal({
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#d62934] to-[#81181f] text-white text-xs font-bold shadow-md shadow-[#d62934]/25 hover:opacity-95 active:scale-98 transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+              className="px-6 py-2.5 rounded-xl bg-linear-to-r from-[#d62934] to-[#81181f] text-white text-xs font-bold shadow-md shadow-[#d62934]/25 hover:opacity-95 active:scale-98 transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer"
             >
               {loading ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
