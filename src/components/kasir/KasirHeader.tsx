@@ -29,7 +29,8 @@ export function KasirHeader({
   const isOwner = profile?.role === "owner";
 
   return (
-    <header className="sticky top-0 z-40 bg-linear-to-r from-[#81181f] via-[#ba1f29] to-[#d62934] text-white shadow-md shadow-[#81181f]/10">
+    <header className="sticky top-0 z-40 bg-linear-to-r from-[#81181f] via-primary-hover to-[#d62934] text-white shadow-md shadow-[#81181f]/10">
+
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-2">
         {/* Brand / Logo */}
         <div className="flex items-center gap-2 sm:gap-3">
@@ -109,9 +110,10 @@ export function KasirHeader({
           {/* Cashier Name & Logout */}
           <div className="flex items-center gap-1.5 pl-1">
             <div className="hidden lg:flex flex-col items-end text-right">
-              <span className="text-xs font-bold text-white leading-tight truncate max-w-[100px]">
+              <span className="text-xs font-bold text-white leading-tight truncate max-w-25">
                 {profile?.nama || "Kasir"}
               </span>
+
               <span className="text-[10px] text-white/70 flex items-center gap-0.5">
                 <UserCheck className="w-3 h-3 text-[#47d1b5]" />
                 {isOwner ? "Owner (Kasir)" : "Kasir"}

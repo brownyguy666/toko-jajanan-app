@@ -57,9 +57,10 @@ export function ReceiptModal({ isOpen, onClose, data }: ReceiptModalProps) {
           <div className="space-y-1 text-[11px]">
             <div className="flex justify-between">
               <span className="text-zinc-500">ID Transaksi:</span>
-              <span className="font-bold text-zinc-900 truncate max-w-[150px]">
+              <span className="font-bold text-zinc-900 truncate max-w-37.5">
                 {data.transaksiId?.substring(0, 13) || "-"}
               </span>
+
             </div>
             <div className="flex justify-between">
               <span className="text-zinc-500">Waktu:</span>

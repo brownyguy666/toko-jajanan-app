@@ -138,7 +138,8 @@ export function TodayHistoryView() {
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Summary KPI Banner */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-        <div className="p-5 rounded-3xl bg-linear-to-br from-[#81181f] to-[#ba1f29] text-white shadow-md shadow-[#81181f]/15 flex items-center justify-between">
+        <div className="p-5 rounded-3xl bg-linear-to-br from-[#81181f] to-primary-hover text-white shadow-md shadow-[#81181f]/15 flex items-center justify-between">
+
           <div>
             <span className="text-xs font-bold text-white/80 uppercase tracking-wider block mb-1">
               Omzet Saya Hari Ini
