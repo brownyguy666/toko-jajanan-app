@@ -62,3 +62,25 @@ body {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
+
+/* Reusable brand input field */
+.input-field {
+  width: 100%;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+  padding-right: 1rem;
+  background-color: rgba(239, 230, 230, 0.4);
+  color: #1c1314;
+  border-radius: 1rem;
+  border: 1px solid rgba(213, 154, 158, 0.5);
+  font-size: 0.875rem;
+  font-weight: 500;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.input-field:focus {
+  background-color: #ffffff;
+  border-color: #d62934;
+  box-shadow: 0 0 0 4px rgba(214, 41, 52, 0.1);
+}

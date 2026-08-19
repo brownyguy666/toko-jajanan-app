@@ -214,7 +214,7 @@ function LoginForm() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="nama@tokojajanan.com"
-                    className="w-full pl-11 pr-4 py-3 bg-[#efe6e6]/40 focus:bg-white text-[#1c1314] rounded-2xl border border-[#d59a9e]/50 focus:border-[#d62934] focus:ring-4 focus:ring-[#d62934]/10 transition-all text-sm outline-none font-medium"
+                    className="input-field pl-11"
                   />
                 </div>
               </div>
@@ -233,7 +233,7 @@ function LoginForm() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full pl-11 pr-12 py-3 bg-[#efe6e6]/40 focus:bg-white text-[#1c1314] rounded-2xl border border-[#d59a9e]/50 focus:border-[#d62934] focus:ring-4 focus:ring-[#d62934]/10 transition-all text-sm outline-none font-medium"
+                    className="input-field pl-11 pr-12"
                   />
                   <button
                     type="button"
@@ -289,7 +289,7 @@ function LoginForm() {
                     value={nama}
                     onChange={(e) => setNama(e.target.value)}
                     placeholder="Contoh: Ibu Rina (Owner)"
-                    className="w-full pl-11 pr-4 py-3 bg-[#efe6e6]/40 focus:bg-white text-[#1c1314] rounded-2xl border border-[#d59a9e]/50 focus:border-[#d62934] focus:ring-4 focus:ring-[#d62934]/10 transition-all text-sm outline-none font-medium"
+                    className="input-field pl-11"
                   />
                 </div>
               </div>
@@ -308,7 +308,7 @@ function LoginForm() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="owner@tokojajanan.com"
-                    className="w-full pl-11 pr-4 py-3 bg-[#efe6e6]/40 focus:bg-white text-[#1c1314] rounded-2xl border border-[#d59a9e]/50 focus:border-[#d62934] focus:ring-4 focus:ring-[#d62934]/10 transition-all text-sm outline-none font-medium"
+                    className="input-field pl-11"
                   />
                 </div>
               </div>
@@ -328,8 +328,9 @@ function LoginForm() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full pl-11 pr-12 py-3 bg-[#efe6e6]/40 focus:bg-white text-[#1c1314] rounded-2xl border border-[#d59a9e]/50 focus:border-[#d62934] focus:ring-4 focus:ring-[#d62934]/10 transition-all text-sm outline-none font-medium"
+                    className="input-field pl-11 pr-12"
                   />
+
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
