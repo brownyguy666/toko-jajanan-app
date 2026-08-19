@@ -67,16 +67,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single();
 
       if (!error && data) {
-        setProfile(data as Profile);
+        const p = data as unknown as Profile;
+        setProfile(p);
         if (typeof window !== "undefined") {
           try {
             localStorage.setItem(
               "toko_auth_cache",
               JSON.stringify({
-                id: data.id,
-                email: data.email,
-                nama: data.nama,
-                role: data.role,
+                id: p.id,
+                email: p.email,
+                nama: p.nama,
+                role: p.role,
               })
             );
           } catch (e) {
@@ -84,6 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
       }
+
     } catch (err) {
       console.error("Error fetching profile:", err);
     }
