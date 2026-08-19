@@ -4,7 +4,6 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { formatStaffEmail } from "@/lib/utils";
-
 import { Profile } from "@/types/database";
 
 export interface StaffActionResult {
@@ -26,8 +25,8 @@ async function verifyOwnerSession() {
     throw new Error("Sesi login berakhir. Silakan login kembali.");
   }
 
-  const admin = createAdminClient();
-  const { data: profile } = await admin
+  // Verifikasi status owner lewat klien sesi terautentikasi
+  const { data: profile, error: profileErr } = await supabase
     .from("profiles")
     .select("role, status_aktif")
     .eq("id", user.id)
@@ -35,11 +34,12 @@ async function verifyOwnerSession() {
 
   const userProfile = profile as unknown as { role: string; status_aktif: boolean } | null;
 
-  if (!userProfile || userProfile.role !== "owner" || !userProfile.status_aktif) {
+  if (profileErr || !userProfile || userProfile.role !== "owner" || !userProfile.status_aktif) {
     throw new Error("Akses ditolak. Hanya Owner aktif yang dapat mengelola pegawai.");
   }
 
-  return { ownerId: user.id, admin };
+  const admin = createAdminClient();
+  return { ownerId: user.id, admin, supabase };
 }
 
 /**
@@ -51,7 +51,7 @@ export async function createStaffAction(
   passwordInput: string
 ): Promise<StaffActionResult> {
   try {
-    const { admin } = await verifyOwnerSession();
+    const { admin, supabase } = await verifyOwnerSession();
 
     const nama = namaInput.trim();
     const cleanUsername = usernameInput.toLowerCase().trim().replace(/[^a-z0-9_]/g, "");
@@ -72,7 +72,7 @@ export async function createStaffAction(
     const internalEmail = formatStaffEmail(cleanUsername);
 
     // Cek apakah username/email sudah digunakan
-    const { data: existingProfile } = await admin
+    const { data: existingProfile } = await supabase
       .from("profiles")
       .select("id")
       .eq("email", internalEmail)
@@ -139,14 +139,14 @@ export async function toggleStaffStatusAction(
   newStatus: boolean
 ): Promise<StaffActionResult> {
   try {
-    const { admin, ownerId } = await verifyOwnerSession();
+    const { admin, supabase, ownerId } = await verifyOwnerSession();
 
     if (profileId === ownerId) {
       return { success: false, error: "Tidak dapat mengubah status akun Owner sendiri." };
     }
 
     // Verifikasi bahwa user adalah pegawai
-    const { data: targetProfile } = await admin
+    const { data: targetProfile } = await supabase
       .from("profiles")
       .select("role, nama")
       .eq("id", profileId)
@@ -220,10 +220,10 @@ export async function deleteStaffAction(profileId: string): Promise<StaffActionR
       return { success: false, error: "Tidak dapat menghapus akun Owner." };
     }
 
-    // Hapus dari auth.users
+    // Hapus dari auth.users via admin
     const { error: deleteAuthErr } = await admin.auth.admin.deleteUser(profileId);
     if (deleteAuthErr) {
-      console.warn("Auth user deletion warning:", deleteAuthErr.message);
+      console.warn("Auth user deletion notice:", deleteAuthErr.message);
     }
 
     // Hapus dari profiles

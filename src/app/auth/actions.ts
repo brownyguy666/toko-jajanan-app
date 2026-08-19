@@ -91,18 +91,19 @@ export async function logoutAction() {
  */
 export async function checkHasOwner(): Promise<boolean> {
   try {
-    const admin = createAdminClient();
-    const { count, error } = await admin
+    const supabase = await createClient();
+    const { count, error } = await supabase
       .from("profiles")
       .select("*", { count: "exact", head: true })
       .eq("role", "owner");
 
-    if (error) return false;
+    if (error) return true; // default aman
     return (count ?? 0) > 0;
   } catch {
     return true; // default aman
   }
 }
+
 
 /**
  * Server Action: Registrasi Akun Owner Pertama (Setup Awal Toko)

@@ -95,17 +95,18 @@ export function KasirHeader({
             </button>
           )}
 
-          {/* If Owner: shortcut to Dashboard */}
+          {/* If Owner: shortcut back to Dashboard */}
           {isOwner && (
             <Link
               href="/dashboard/produk"
-              className="hidden md:flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold border border-white/20 transition-all"
-              title="Dashboard Owner"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold border border-white/30 transition-all shadow-sm active:scale-95 cursor-pointer"
+              title="Kembali ke Dashboard Owner"
             >
-              <LayoutDashboard className="w-3.5 h-3.5" />
-              <span>Dashboard</span>
+              <LayoutDashboard className="w-3.5 h-3.5 text-[#47d1b5]" />
+              <span className="inline">Dashboard</span>
             </Link>
           )}
+
 
           {/* Cashier Name & Logout */}
           <div className="flex items-center gap-1.5 pl-1">
