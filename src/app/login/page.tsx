@@ -36,24 +36,30 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [nama, setNama] = useState("");
 
-  // Periksa apakah ada error dari parameter URL (misal: non-aktif)
-  useEffect(() => {
-    const errorParam = searchParams.get("error");
-    if (errorParam === "deactivated") {
-      setErrorMessage("Akun Anda berstatus non-aktif. Silakan hubungi Owner.");
-    }
-  }, [searchParams]);
+  // Pesan error jika akun dinonaktifkan (diturunkan langsung dari query param)
+  const isDeactivated = searchParams.get("error") === "deactivated";
+  const displayError =
+    errorMessage ||
+    (isDeactivated
+      ? "Akun Anda berstatus non-aktif. Silakan hubungi Owner."
+      : null);
 
   // Cek apakah sudah ada owner terdaftar di database
   useEffect(() => {
+    let isMounted = true;
     async function checkOwnerStatus() {
       const exists = await checkHasOwner();
-      setHasOwner(exists);
-      if (!exists) {
-        setActiveTab("register");
+      if (isMounted) {
+        setHasOwner(exists);
+        if (!exists) {
+          setActiveTab("register");
+        }
       }
     }
     checkOwnerStatus();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Jika sudah login, redirect otomatis
@@ -84,7 +90,6 @@ function LoginForm() {
       setIsLoading(false);
     } else {
       setSuccessMessage("Berhasil masuk! Mengalihkan halaman...");
-      // Tunggu session tersinkronisasi lalu redirect
       setTimeout(() => {
         router.push(res.redirectTo || (res.role === "owner" ? "/admin" : "/kasir"));
         router.refresh();
@@ -118,7 +123,7 @@ function LoginForm() {
   };
 
   return (
-    <main className="min-h-screen w-full flex flex-col items-center justify-center p-4 bg-gradient-to-br from-[#efe6e6] via-[#fdfbfb] to-[#efe6e6]/60 relative overflow-hidden">
+    <main className="min-h-screen w-full flex flex-col items-center justify-center p-4 bg-linear-to-br from-[#efe6e6] via-[#fdfbfb] to-[#efe6e6]/60 relative overflow-hidden">
       {/* Background ambient elements */}
       <div className="absolute -top-32 -right-32 w-96 h-96 bg-[#d59a9e]/20 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-[#d62934]/10 rounded-full blur-3xl pointer-events-none" />
@@ -127,7 +132,7 @@ function LoginForm() {
       <div className="w-full max-w-md relative z-10">
         {/* Brand Header */}
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#81181f] to-[#d62934] text-white shadow-lg shadow-[#d62934]/25 mb-3">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-linear-to-tr from-[#81181f] to-[#d62934] text-white shadow-lg shadow-[#d62934]/25 mb-3">
             <UtensilsCrossed className="w-8 h-8" />
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-[#81181f] tracking-tight">
@@ -178,10 +183,10 @@ function LoginForm() {
           </div>
 
           {/* Banner Pesan Error / Sukses */}
-          {errorMessage && (
+          {displayError && (
             <div className="mb-5 p-3.5 rounded-2xl bg-[#d62934]/10 border border-[#d62934]/30 flex items-start gap-3 text-xs sm:text-sm text-[#81181f]">
               <AlertCircle className="w-5 h-5 text-[#d62934] shrink-0 mt-0.5" />
-              <div className="font-medium leading-relaxed">{errorMessage}</div>
+              <div className="font-medium leading-relaxed">{displayError}</div>
             </div>
           )}
 
@@ -209,7 +214,7 @@ function LoginForm() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="nama@tokojajanan.com"
-                    className="w-full pl-11 pr-4 py-3 bg-[#efe6e6]/30 hover:bg-[#efe6e6]/50 focus:bg-white text-[#1c1314] rounded-2xl border border-[#d59a9e]/50 focus:border-[#d62934] focus:ring-4 focus:ring-[#d62934]/10 transition-all text-sm outline-none font-medium"
+                    className="w-full pl-11 pr-4 py-3 bg-[#efe6e6]/40 focus:bg-white text-[#1c1314] rounded-2xl border border-[#d59a9e]/50 focus:border-[#d62934] focus:ring-4 focus:ring-[#d62934]/10 transition-all text-sm outline-none font-medium"
                   />
                 </div>
               </div>
@@ -228,7 +233,7 @@ function LoginForm() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full pl-11 pr-12 py-3 bg-[#efe6e6]/30 hover:bg-[#efe6e6]/50 focus:bg-white text-[#1c1314] rounded-2xl border border-[#d59a9e]/50 focus:border-[#d62934] focus:ring-4 focus:ring-[#d62934]/10 transition-all text-sm outline-none font-medium"
+                    className="w-full pl-11 pr-12 py-3 bg-[#efe6e6]/40 focus:bg-white text-[#1c1314] rounded-2xl border border-[#d59a9e]/50 focus:border-[#d62934] focus:ring-4 focus:ring-[#d62934]/10 transition-all text-sm outline-none font-medium"
                   />
                   <button
                     type="button"
@@ -247,7 +252,7 @@ function LoginForm() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full mt-2 py-3.5 px-4 rounded-2xl bg-gradient-to-r from-[#d62934] to-[#81181f] text-white font-bold text-sm shadow-md shadow-[#d62934]/30 hover:shadow-lg hover:shadow-[#d62934]/40 hover:opacity-95 active:scale-[0.99] transition-all disabled:opacity-50 flex items-center justify-center gap-2 touch-btn cursor-pointer"
+                className="w-full mt-2 py-3.5 px-4 rounded-2xl bg-linear-to-r from-[#d62934] to-[#81181f] text-white font-bold text-sm shadow-md shadow-[#d62934]/30 hover:shadow-lg hover:shadow-[#d62934]/40 hover:opacity-95 active:scale-[0.99] transition-all disabled:opacity-50 flex items-center justify-center gap-2 touch-btn cursor-pointer"
               >
                 {isLoading ? (
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -284,7 +289,7 @@ function LoginForm() {
                     value={nama}
                     onChange={(e) => setNama(e.target.value)}
                     placeholder="Contoh: Ibu Rina (Owner)"
-                    className="w-full pl-11 pr-4 py-3 bg-[#efe6e6]/30 hover:bg-[#efe6e6]/50 focus:bg-white text-[#1c1314] rounded-2xl border border-[#d59a9e]/50 focus:border-[#d62934] focus:ring-4 focus:ring-[#d62934]/10 transition-all text-sm outline-none font-medium"
+                    className="w-full pl-11 pr-4 py-3 bg-[#efe6e6]/40 focus:bg-white text-[#1c1314] rounded-2xl border border-[#d59a9e]/50 focus:border-[#d62934] focus:ring-4 focus:ring-[#d62934]/10 transition-all text-sm outline-none font-medium"
                   />
                 </div>
               </div>
@@ -303,7 +308,7 @@ function LoginForm() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="owner@tokojajanan.com"
-                    className="w-full pl-11 pr-4 py-3 bg-[#efe6e6]/30 hover:bg-[#efe6e6]/50 focus:bg-white text-[#1c1314] rounded-2xl border border-[#d59a9e]/50 focus:border-[#d62934] focus:ring-4 focus:ring-[#d62934]/10 transition-all text-sm outline-none font-medium"
+                    className="w-full pl-11 pr-4 py-3 bg-[#efe6e6]/40 focus:bg-white text-[#1c1314] rounded-2xl border border-[#d59a9e]/50 focus:border-[#d62934] focus:ring-4 focus:ring-[#d62934]/10 transition-all text-sm outline-none font-medium"
                   />
                 </div>
               </div>
@@ -323,7 +328,7 @@ function LoginForm() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full pl-11 pr-12 py-3 bg-[#efe6e6]/30 hover:bg-[#efe6e6]/50 focus:bg-white text-[#1c1314] rounded-2xl border border-[#d59a9e]/50 focus:border-[#d62934] focus:ring-4 focus:ring-[#d62934]/10 transition-all text-sm outline-none font-medium"
+                    className="w-full pl-11 pr-12 py-3 bg-[#efe6e6]/40 focus:bg-white text-[#1c1314] rounded-2xl border border-[#d59a9e]/50 focus:border-[#d62934] focus:ring-4 focus:ring-[#d62934]/10 transition-all text-sm outline-none font-medium"
                   />
                   <button
                     type="button"
@@ -342,7 +347,7 @@ function LoginForm() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full mt-2 py-3.5 px-4 rounded-2xl bg-gradient-to-r from-[#81181f] to-[#d62934] text-white font-bold text-sm shadow-md shadow-[#d62934]/30 hover:shadow-lg hover:shadow-[#d62934]/40 hover:opacity-95 active:scale-[0.99] transition-all disabled:opacity-50 flex items-center justify-center gap-2 touch-btn cursor-pointer"
+                className="w-full mt-2 py-3.5 px-4 rounded-2xl bg-linear-to-r from-[#81181f] to-[#d62934] text-white font-bold text-sm shadow-md shadow-[#d62934]/30 hover:shadow-lg hover:shadow-[#d62934]/40 hover:opacity-95 active:scale-[0.99] transition-all disabled:opacity-50 flex items-center justify-center gap-2 touch-btn cursor-pointer"
               >
                 {isLoading ? (
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -401,3 +406,4 @@ export default function LoginPage() {
     </Suspense>
   );
 }
+
