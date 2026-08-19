@@ -15,7 +15,6 @@ import {
   Banknote,
   AlertCircle,
   CheckCircle2,
-  Receipt,
   ArrowRight,
 } from "lucide-react";
 
@@ -161,7 +160,7 @@ export function CartDrawer({
                 <ShoppingBag className="w-8 h-8" />
               </div>
               <p className="font-bold text-[#81181f] text-sm">Keranjang Masih Kosong</p>
-              <p className="text-xs text-zinc-500 max-w-[200px] mt-1">
+              <p className="text-xs text-zinc-500 max-w-50 mt-1">
                 Sentuh menu jajanan di katalog untuk menambahkan ke pesanan.
               </p>
             </div>
@@ -206,7 +205,11 @@ export function CartDrawer({
                     type="button"
                     disabled={item.qty >= item.maxStok}
                     onClick={() => onUpdateQty(item.produk_id, item.qty + 1)}
-                    className="w-7 h-7 rounded-lg bg-[#d62934] disabled:bg-zinc-300 text-white flex items-center justify-center shadow-2xs active:scale-90 transition-all cursor-pointer disabled:cursor-not-allowed"
+                    className={`w-7 h-7 rounded-lg text-white flex items-center justify-center shadow-2xs active:scale-90 transition-all ${
+                      item.qty >= item.maxStok
+                        ? "bg-zinc-300 cursor-not-allowed"
+                        : "bg-[#d62934] cursor-pointer"
+                    }`}
                   >
                     <Plus className="w-3.5 h-3.5" />
                   </button>

@@ -7,9 +7,9 @@ import {
   CheckCircle2,
   Printer,
   ShoppingBag,
-  X,
   UtensilsCrossed,
 } from "lucide-react";
+
 
 interface ReceiptModalProps {
   isOpen: boolean;

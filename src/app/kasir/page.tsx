@@ -16,9 +16,9 @@ import {
   ShoppingBag,
   Image as ImageIcon,
   Check,
-  Sparkles,
   UtensilsCrossed,
 } from "lucide-react";
+
 
 export default function KasirPage() {
   const supabase = createClient();
