@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
   const router = useRouter();
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = React.useCallback(async (userId: string) => {
     try {
       const { data, error } = await supabase
         .from("profiles")
@@ -85,11 +85,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
       }
-
     } catch (err) {
       console.error("Error fetching profile:", err);
     }
-  };
+  }, [supabase]);
 
   useEffect(() => {
     let mounted = true;
@@ -177,7 +176,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [supabase, fetchProfile]);
+
 
   const refreshProfile = async () => {
     if (user?.id) {
