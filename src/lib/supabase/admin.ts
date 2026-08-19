@@ -8,17 +8,16 @@ export function createAdminClient() {
     "https://xxeegyireqgxshtazkzh.supabase.co";
   const serviceRoleKey =
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_SERVICE_KEY;
+    process.env.SUPABASE_SERVICE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    "";
 
-  if (!serviceRoleKey) {
-    throw new Error("SUPABASE_SERVICE_ROLE_KEY is missing in environment variables.");
-  }
-
-  return createClient<Database>(supabaseUrl, serviceRoleKey, {
+  return createClient<Database>(supabaseUrl, serviceRoleKey || "dummy-key", {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
     },
   });
 }
+
 

@@ -1,7 +1,6 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { PaymentMethod } from "@/types/database";
 
@@ -69,10 +68,8 @@ export async function processTransactionAction(
       return { success: false, error: "Keranjang belanja masih kosong." };
     }
 
-    const admin = createAdminClient();
-
     // 1. Ambil data kasir
-    const { data: profileData } = await admin
+    const { data: profileData } = await supabase
       .from("profiles")
       .select("nama, role, status_aktif")
       .eq("id", user.id)
@@ -86,7 +83,7 @@ export async function processTransactionAction(
 
     // 2. Validasi stok aktual semua produk di database
     const productIds = items.map((i) => i.produk_id);
-    const { data: rawDbProducts, error: prodErr } = await admin
+    const { data: rawDbProducts, error: prodErr } = await supabase
       .from("produk")
       .select("id, nama, harga_jual, stok")
       .in("id", productIds);
@@ -153,7 +150,7 @@ export async function processTransactionAction(
     const transactionTime = new Date().toISOString();
 
     // 3. Simpan baris transaksi
-    const { data: newTransaksi, error: trxErr } = await admin
+    const { data: newTransaksi, error: trxErr } = await supabase
       .from("transaksi")
       .insert({
         kasir_id: user.id,
@@ -179,7 +176,7 @@ export async function processTransactionAction(
       subtotal: item.subtotal,
     }));
 
-    const { error: itemsErr } = await admin
+    const { error: itemsErr } = await supabase
       .from("transaksi_item")
       .insert(itemsToInsert as never);
 
@@ -189,7 +186,7 @@ export async function processTransactionAction(
 
     // 5. Potong stok produk secara otomatis
     for (const item of validatedItems) {
-      await admin
+      await supabase
         .from("produk")
         .update({
           stok: item.newStock,
@@ -245,10 +242,8 @@ export async function cancelTransactionAction(
       return { success: false, error: "Sesi login berakhir. Silakan login kembali." };
     }
 
-    const admin = createAdminClient();
-
     // 1. Ambil data profil
-    const { data: profileData } = await admin
+    const { data: profileData } = await supabase
       .from("profiles")
       .select("role, status_aktif")
       .eq("id", user.id)
@@ -260,7 +255,7 @@ export async function cancelTransactionAction(
     }
 
     // 2. Ambil data transaksi
-    const { data: trxData, error: trxErr } = await admin
+    const { data: trxData, error: trxErr } = await supabase
       .from("transaksi")
       .select("id, kasir_id, tanggal, total")
       .eq("id", transaksiId)
@@ -300,7 +295,7 @@ export async function cancelTransactionAction(
     }
 
     // 4. Ambil item transaksi untuk mengembalikan stok
-    const { data: itemsData, error: itemsErr } = await admin
+    const { data: itemsData, error: itemsErr } = await supabase
       .from("transaksi_item")
       .select("produk_id, qty")
       .eq("transaksi_id", transaksiId);
@@ -313,7 +308,7 @@ export async function cancelTransactionAction(
 
     // 5. Kembalikan stok setiap produk di database
     for (const item of items) {
-      const { data: pData } = await admin
+      const { data: pData } = await supabase
         .from("produk")
         .select("stok")
         .eq("id", item.produk_id)
@@ -322,7 +317,7 @@ export async function cancelTransactionAction(
       const currentStock = (pData as unknown as { stok: number } | null)?.stok ?? 0;
       const restoredStock = currentStock + item.qty;
 
-      await admin
+      await supabase
         .from("produk")
         .update({
           stok: restoredStock,
@@ -332,8 +327,8 @@ export async function cancelTransactionAction(
     }
 
     // 6. Hapus baris transaksi_item dan transaksi
-    await admin.from("transaksi_item").delete().eq("transaksi_id", transaksiId);
-    await admin.from("transaksi").delete().eq("id", transaksiId);
+    await supabase.from("transaksi_item").delete().eq("transaksi_id", transaksiId);
+    await supabase.from("transaksi").delete().eq("id", transaksiId);
 
     revalidatePath("/kasir");
     revalidatePath("/dashboard/produk");
