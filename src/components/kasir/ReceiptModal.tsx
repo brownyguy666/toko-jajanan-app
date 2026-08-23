@@ -41,18 +41,25 @@ export function ReceiptModal({
       currentTime - new Date(data.tanggal).getTime() <= 5 * 60 * 1000 + 15000
   );
 
+  const isOffline = Boolean(data?.is_offline);
+
   if (!isOpen || !data) return null;
 
   // Format Text Receipt for WhatsApp & Clipboard
   const generateReceiptText = () => {
     const lines: string[] = [
       "🧾 *STRUK PEMBELIAN - TOKO JAJANAN*",
-      `No. Transaksi : #${data.transaksiId?.substring(0, 10) || "-"}`,
+      `No. Transaksi : #${data.transaksiId?.substring(0, 14) || "-"}`,
       `Waktu : ${data.tanggal ? formatTanggal(data.tanggal) : "-"}`,
       `Kasir : ${data.kasir_nama || "Kasir"}`,
       `Metode Bayar : ${data.metode_bayar?.toUpperCase() || "TUNAI"}`,
-      "--------------------------------",
     ];
+
+    if (isOffline) {
+      lines.push("Status : [OFFLINE - TERSIMPAN LOKAL]");
+    }
+
+    lines.push("--------------------------------");
 
     data.items?.forEach((item) => {
       lines.push(`• ${item.nama} (${item.qty}x) : ${formatRupiah(item.subtotal)}`);
@@ -97,41 +104,40 @@ export function ReceiptModal({
   const handleCancelTransaction = async () => {
     if (!data.transaksiId) return;
     setCancelling(true);
+    const res = await cancelTransactionAction(data.transaksiId);
+    setCancelling(false);
 
-    try {
-      const res = await cancelTransactionAction(data.transaksiId);
-      if (!res.success) {
-        alert(res.error || "Gagal membatalkan transaksi.");
-        return;
-      }
-
-      alert("Transaksi berhasil dibatalkan dan stok produk telah dikembalikan.");
+    if (res.success) {
+      alert(res.message || "Transaksi berhasil dibatalkan dan stok dikembalikan.");
       setShowCancelConfirm(false);
       onClose();
-      if (onTransactionCancelled) {
-        onTransactionCancelled();
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Terjadi kesalahan";
-      alert(msg);
-    } finally {
-      setCancelling(false);
+      if (onTransactionCancelled) onTransactionCancelled();
+    } else {
+      alert(res.error || "Gagal membatalkan transaksi.");
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto animate-fadeIn">
-      <div className="bg-white rounded-3xl border border-[#d59a9e]/40 shadow-2xl max-w-sm w-full overflow-hidden my-6 flex flex-col">
-        {/* Success Banner */}
-        <div className="bg-linear-to-r from-[#0c6b57] to-[#47d1b5] text-white px-5 py-3.5 text-center">
-          <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-1.5">
-            <CheckCircle2 className="w-5 h-5 text-white" />
+      <div className="bg-white rounded-3xl border border-[#d59a9e]/40 shadow-2xl max-w-sm w-full overflow-hidden my-6">
+        {/* Modal Header */}
+        <div
+          className={`text-white px-5 py-4 text-center space-y-1 ${
+            isOffline
+              ? "bg-linear-to-r from-amber-600 to-amber-700"
+              : "bg-linear-to-r from-[#0c6b57] to-[#47d1b5]"
+          }`}
+        >
+          <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-1">
+            <CheckCircle2 className="w-6 h-6 text-white" />
           </div>
           <h3 className="font-extrabold text-base tracking-tight leading-tight">
-            Transaksi Berhasil!
+            {isOffline ? "Transaksi Tersimpan Lokal (Offline)" : "Transaksi Berhasil!"}
           </h3>
           <p className="text-[11px] text-white/90">
-            Stok produk telah terpotong otomatis
+            {isOffline
+              ? "Menunggu koneksi internet untuk sinkronisasi otomatis"
+              : "Stok produk telah terpotong otomatis"}
           </p>
         </div>
 

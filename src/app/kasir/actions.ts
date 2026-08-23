@@ -19,6 +19,7 @@ export interface TransactionPayload {
 
 export interface TransactionResult {
   success: boolean;
+  is_offline?: boolean;
   error?: string;
   message?: string;
   transaksiId?: string;
@@ -35,6 +36,7 @@ export interface TransactionResult {
     subtotal: number;
   }[];
 }
+
 
 interface ProductDbRow {
   id: string;

@@ -9,7 +9,9 @@ import { KasirHeader } from "@/components/kasir/KasirHeader";
 import { CartDrawer, CartItemWithStock } from "@/components/kasir/CartDrawer";
 import { ReceiptModal } from "@/components/kasir/ReceiptModal";
 import { TodayHistoryView } from "@/components/kasir/TodayHistoryView";
+import { OfflineQueueBar } from "@/components/kasir/OfflineQueueBar";
 import { TransactionResult } from "@/app/kasir/actions";
+
 import {
   Search,
   Plus,
@@ -126,7 +128,21 @@ export default function KasirPage() {
 
   const handleTransactionSuccess = (result: TransactionResult) => {
     setReceiptData(result);
-    refetchProducts();
+
+    // Jika transaksi offline, potong stok di state lokal langsung agar kasir bisa lanjut jualan tanpa lag
+    if (result.is_offline && result.items) {
+      setProducts((prev) =>
+        prev.map((p) => {
+          const soldItem = result.items?.find((i) => i.nama === p.nama);
+          if (soldItem) {
+            return { ...p, stok: Math.max(0, p.stok - soldItem.qty) };
+          }
+          return p;
+        })
+      );
+    } else {
+      refetchProducts();
+    }
   };
 
   // Categories list
@@ -172,10 +188,14 @@ export default function KasirPage() {
       />
 
       <main className="max-w-7xl mx-auto w-full px-3 sm:px-6 py-4 sm:py-6 flex-1">
+        {/* Offline Queue Connection & Sync Bar */}
+        <OfflineQueueBar onSyncComplete={refetchProducts} />
+
         {activeTab === "history" ? (
           <TodayHistoryView />
         ) : (
           <div className="space-y-4 sm:space-y-5">
+
             {/* Search & Categories Bar */}
             <div className="bg-white rounded-3xl border border-[#d59a9e]/30 p-3 sm:p-4 shadow-sm space-y-3">
               {/* Search input */}

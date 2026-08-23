@@ -4,6 +4,9 @@ import React, { useState } from "react";
 import { formatRupiah, parseRupiah } from "@/lib/utils";
 import { PaymentMethod } from "@/types/database";
 import { CartItemPayload, processTransactionAction, TransactionResult } from "@/app/kasir/actions";
+
+import { saveToOfflineQueue } from "@/lib/offlineQueue";
+import { useAuth } from "@/context/AuthContext";
 import {
   ShoppingBag,
   Trash2,
@@ -16,7 +19,9 @@ import {
   AlertCircle,
   CheckCircle2,
   ArrowRight,
+  WifiOff,
 } from "lucide-react";
+
 
 export interface CartItemWithStock extends CartItemPayload {
   maxStok: number;
@@ -41,6 +46,7 @@ export function CartDrawer({
   onClearCart,
   onTransactionSuccess,
 }: CartDrawerProps) {
+  const { profile } = useAuth();
   const [metodeBayar, setMetodeBayar] = useState<PaymentMethod>("tunai");
   const [uangDiterimaStr, setUangDiterimaStr] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -71,22 +77,78 @@ export function CartDrawer({
       return;
     }
 
+    const payloadItems = cart.map((i) => ({
+      produk_id: i.produk_id,
+      nama: i.nama,
+      qty: i.qty,
+      harga_jual: i.harga_jual,
+    }));
+
+    const finalUangDiterima = metodeBayar === "tunai" ? uangDiterima : totalBelanja;
+    const finalKembalian = metodeBayar === "tunai" ? kembalian : 0;
+    const kasirNama = profile?.nama || "Kasir";
+
+    // Helper untuk menyimpan transaksi secara offline
+    const executeOfflineFallback = () => {
+      const clientId = `offline_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const nowIso = new Date().toISOString();
+
+      saveToOfflineQueue({
+        client_id: clientId,
+        created_at: nowIso,
+        total: totalBelanja,
+        metode_bayar: metodeBayar,
+        uang_diterima: finalUangDiterima,
+        kembalian: finalKembalian,
+        kasir_nama: kasirNama,
+        items: payloadItems.map((i) => ({
+          ...i,
+          subtotal: i.harga_jual * i.qty,
+        })),
+      });
+
+      const offlineResult: TransactionResult = {
+        success: true,
+        is_offline: true,
+        transaksiId: clientId,
+        tanggal: nowIso,
+        total: totalBelanja,
+        metode_bayar: metodeBayar,
+        uang_diterima: finalUangDiterima,
+        kembalian: finalKembalian,
+        kasir_nama: kasirNama,
+        items: payloadItems.map((i) => ({
+          nama: i.nama,
+          qty: i.qty,
+          harga: i.harga_jual,
+          subtotal: i.harga_jual * i.qty,
+        })),
+      };
+
+      onClearCart();
+      setUangDiterimaStr("");
+      onClose();
+      onTransactionSuccess(offlineResult);
+    };
+
+    // 1. Jika browser terdeteksi offline secara eksplisit
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      executeOfflineFallback();
+      return;
+    }
+
     setLoading(true);
     setErrorMsg(null);
 
     try {
       const result = await processTransactionAction({
-        items: cart.map((i) => ({
-          produk_id: i.produk_id,
-          nama: i.nama,
-          qty: i.qty,
-          harga_jual: i.harga_jual,
-        })),
+        items: payloadItems,
         metode_bayar: metodeBayar,
-        uang_diterima: metodeBayar === "tunai" ? uangDiterima : totalBelanja,
+        uang_diterima: finalUangDiterima,
       });
 
       if (!result.success) {
+        // Jika error bukan karena koneksi melainkan validasi bisnis (misal stok kurang)
         setErrorMsg(result.error || "Gagal memproses transaksi.");
         return;
       }
@@ -96,12 +158,14 @@ export function CartDrawer({
       onClose();
       onTransactionSuccess(result);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Terjadi kesalahan saat transaksi.";
-      setErrorMsg(msg);
+      console.warn("Network error during transaction, falling back to offline queue:", err);
+      // Fallback ke antrian offline jika gagal koneksi di tengah jalan
+      executeOfflineFallback();
     } finally {
       setLoading(false);
     }
   };
+
 
   if (!isOpen) return null;
 
