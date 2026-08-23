@@ -40,11 +40,13 @@ export interface Produk {
   harga_modal: number;
   hpp_terkini?: number;
   stok: number;
+  stok_minimum?: number;
   foto_url: string | null;
   created_at?: string;
   updated_at?: string;
   resep?: Resep[];
 }
+
 
 export interface Transaksi {
   id: string;
@@ -168,6 +170,7 @@ export type Database = {
           harga_modal: number;
           hpp_terkini?: number;
           stok?: number;
+          stok_minimum?: number;
           foto_url?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -180,12 +183,14 @@ export type Database = {
           harga_modal?: number;
           hpp_terkini?: number;
           stok?: number;
+          stok_minimum?: number;
           foto_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Relationships: [];
       };
+
       transaksi: {
         Row: Transaksi;
         Insert: {

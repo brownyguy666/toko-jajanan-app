@@ -150,13 +150,15 @@ export default function ProdukManagementPage() {
       selectedCategory === "Semua" || item.kategori === selectedCategory;
 
     let matchesStock = true;
+    const minThreshold = item.stok_minimum ?? 5;
     if (stockFilter === "out_of_stock") {
       matchesStock = item.stok === 0;
     } else if (stockFilter === "low_stock") {
-      matchesStock = item.stok > 0 && item.stok < 10;
+      matchesStock = item.stok > 0 && item.stok <= minThreshold;
     } else if (stockFilter === "in_stock") {
-      matchesStock = item.stok >= 10;
+      matchesStock = item.stok > minThreshold;
     }
+
 
     return matchesSearch && matchesCategory && matchesStock;
   });
@@ -499,10 +501,10 @@ export default function ProdukManagementPage() {
                               <span className="w-1.5 h-1.5 rounded-full bg-[#d62934]" />
                               Habis (0)
                             </span>
-                          ) : p.stok < 10 ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-700 text-[11px] font-bold">
+                          ) : p.stok <= (p.stok_minimum ?? 5) ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-700 text-[11px] font-bold" title={`Stok minimum: ${p.stok_minimum ?? 5}`}>
                               <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                              {p.stok} porsi
+                              {p.stok} porsi (Min. {p.stok_minimum ?? 5})
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#47d1b5]/15 text-[#0c6b57] text-[11px] font-bold">
@@ -511,6 +513,7 @@ export default function ProdukManagementPage() {
                             </span>
                           )}
                         </td>
+
 
                         {/* Actions */}
                         <td className="py-3 px-4 text-center">

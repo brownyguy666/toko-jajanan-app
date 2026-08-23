@@ -82,7 +82,13 @@ function ProductFormContent({
   const [stokStr, setStokStr] = useState(() =>
     productToEdit ? productToEdit.stok.toString() : "20"
   );
+  const [stokMinimumStr, setStokMinimumStr] = useState(() =>
+    productToEdit?.stok_minimum !== undefined
+      ? productToEdit.stok_minimum.toString()
+      : "5"
+  );
   const [fotoUrl, setFotoUrl] = useState<string | null>(() => productToEdit?.foto_url || null);
+
 
   // Recipe rows state
   const [recipeRows, setRecipeRows] = useState<RecipeRowState[]>([]);
@@ -222,6 +228,8 @@ function ProductFormContent({
         ? customKategori.trim()
         : kategori;
 
+    const stokMinimum = Math.max(0, parseInt(stokMinimumStr, 10) || 5);
+
     setLoading(true);
 
     try {
@@ -264,6 +272,7 @@ function ProductFormContent({
             harga_modal: effectiveHpp,
             hpp_terkini: effectiveHpp,
             stok: stok,
+            stok_minimum: stokMinimum,
             foto_url: finalFotoUrl,
             updated_at: new Date().toISOString(),
           } as never)
@@ -281,6 +290,7 @@ function ProductFormContent({
             harga_modal: effectiveHpp,
             hpp_terkini: effectiveHpp,
             stok: stok,
+            stok_minimum: stokMinimum,
             foto_url: finalFotoUrl,
           } as never)
           .select("id")
@@ -289,6 +299,7 @@ function ProductFormContent({
         if (insertError || !newProd) throw insertError;
         targetProductId = (newProd as { id: string }).id;
       }
+
 
       // SYNC RESEP ITEMS
       if (targetProductId) {
@@ -621,21 +632,42 @@ function ProductFormContent({
         </div>
       </div>
 
-      {/* 6. Stok Jajanan */}
-      <div>
-        <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1.5">
-          Stok Tersedia (Porsi / Pcs) *
-        </label>
-        <input
-          type="number"
-          min="0"
-          required
-          value={stokStr}
-          onChange={(e) => setStokStr(e.target.value)}
-          placeholder="0"
-          className="input-field"
-        />
+      {/* 6. Stok Jajanan & Stok Minimum Peringatan */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1.5">
+            Stok Tersedia (Porsi) *
+          </label>
+          <input
+            type="number"
+            min="0"
+            required
+            value={stokStr}
+            onChange={(e) => setStokStr(e.target.value)}
+            placeholder="0"
+            className="input-field"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1.5">
+            Batas Stok Minimum (Peringatan) *
+          </label>
+          <input
+            type="number"
+            min="0"
+            required
+            value={stokMinimumStr}
+            onChange={(e) => setStokMinimumStr(e.target.value)}
+            placeholder="5"
+            className="input-field"
+          />
+          <span className="text-[10px] text-zinc-400 mt-1 block">
+            Peringatan otomatis muncul jika stok ≤ batas ini.
+          </span>
+        </div>
       </div>
+
 
       {/* Modal Actions */}
       <div className="pt-4 border-t border-[#efe6e6] flex items-center justify-end gap-2.5">

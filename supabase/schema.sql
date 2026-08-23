@@ -25,10 +25,12 @@ CREATE TABLE IF NOT EXISTS public.produk (
     harga_modal INTEGER NOT NULL CHECK (harga_modal >= 0),
     hpp_terkini INTEGER NOT NULL DEFAULT 0 CHECK (hpp_terkini >= 0),
     stok INTEGER NOT NULL DEFAULT 0 CHECK (stok >= 0),
+    stok_minimum INTEGER NOT NULL DEFAULT 5 CHECK (stok_minimum >= 0),
     foto_url TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
 
 -- 4. TABEL BAHAN BAKU
 CREATE TABLE IF NOT EXISTS public.bahan_baku (

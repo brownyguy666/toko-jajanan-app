@@ -8,6 +8,13 @@ import { AdminNavbar } from "@/components/admin/AdminNavbar";
 import { SalesTrendChart, TrendDataPoint } from "@/components/dashboard/SalesTrendChart";
 import { ExpenseComparisonChart } from "@/components/dashboard/ExpenseComparisonChart";
 import { TopProductsList, TopProductItem } from "@/components/dashboard/TopProductsList";
+import { Produk } from "@/types/database";
+import { LowStockAlertBanner } from "@/components/dashboard/LowStockAlertBanner";
+import {
+  StockoutInsightsList,
+  RestockInsightItem,
+} from "@/components/dashboard/StockoutInsightsList";
+
 import {
   TrendingUp,
   DollarSign,
@@ -20,6 +27,7 @@ import {
   Layers,
   Percent,
 } from "lucide-react";
+
 
 
 type TimeRange = "today" | "week" | "month" | "all";
@@ -62,6 +70,7 @@ export default function DashboardOverviewPage() {
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<RawTransaction[]>([]);
   const [expenses, setExpenses] = useState<RawExpense[]>([]);
+  const [products, setProducts] = useState<Produk[]>([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -97,7 +106,6 @@ export default function DashboardOverviewPage() {
           `)
           .order("tanggal", { ascending: true });
 
-
         if (trxErr) throw trxErr;
 
         // 2. Ambil seluruh data pengeluaran
@@ -108,9 +116,18 @@ export default function DashboardOverviewPage() {
 
         if (expErr) throw expErr;
 
+        // 3. Ambil data seluruh produk untuk monitoring stok minimum
+        const { data: prodData, error: prodErr } = await supabase
+          .from("produk")
+          .select("*")
+          .order("nama", { ascending: true });
+
+        if (prodErr) throw prodErr;
+
         if (isMounted) {
           setTransactions((trxData as unknown as RawTransaction[]) || []);
           setExpenses((expData as unknown as RawExpense[]) || []);
+          setProducts((prodData as unknown as Produk[]) || []);
         }
       } catch (err: unknown) {
         console.error("Error loading dashboard data:", err);
@@ -118,6 +135,7 @@ export default function DashboardOverviewPage() {
         if (isMounted) setLoading(false);
       }
     }
+
 
     loadDashboardData();
 
@@ -281,17 +299,80 @@ export default function DashboardOverviewPage() {
     };
   }, [filteredTransactions, filteredExpenses]);
 
+  // Kalkulasi Insight Kebutuhan Restok 7 Hari Terakhir
+  const restockInsights = useMemo(() => {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const sales7dMap = new Map<string, number>();
+
+    transactions
+      .filter((t) => new Date(t.tanggal) >= sevenDaysAgo)
+      .forEach((t) => {
+        t.transaksi_item?.forEach((item) => {
+          const pid = item.produk_id || item.produk?.id;
+          if (pid) {
+            sales7dMap.set(pid, (sales7dMap.get(pid) || 0) + item.qty);
+          }
+        });
+      });
+
+    const list: RestockInsightItem[] = products.map((p) => {
+      const sold7d = sales7dMap.get(p.id) || 0;
+      const minThreshold = p.stok_minimum !== undefined ? p.stok_minimum : 5;
+      const dailyAvg = Math.round((sold7d / 7) * 10) / 10;
+
+      let status: RestockInsightItem["status"] = "aman";
+      let rekomendasi = "Stok dalam batas aman.";
+
+      if (p.stok === 0) {
+        status = "habis";
+        rekomendasi =
+          sold7d > 0
+            ? `Habis total! Terjual ${sold7d} porsi dalam 7 hari terakhir. Segera buat stok baru.`
+            : "Stok habis (0 porsi). Segera lakukan pengisian stok.";
+      } else if (p.stok <= minThreshold) {
+        status = "kritis";
+        rekomendasi = `Sisa ${p.stok} porsi (di bawah batas minimum ${minThreshold}). Restok sebelum kehabisan.`;
+      } else if (sold7d >= 10 && p.stok <= Math.ceil(sold7d / 2)) {
+        status = "cepat_habis";
+        rekomendasi = `Penjualan tinggi (~${dailyAvg} porsi/hari). Disarankan menambah kuota produksi.`;
+      }
+
+      return {
+        id: p.id,
+        nama: p.nama,
+        kategori: p.kategori,
+        stok: p.stok,
+        stok_minimum: minThreshold,
+        terjual7Hari: sold7d,
+        rataRataHarian: dailyAvg,
+        status,
+        rekomendasi,
+      };
+    });
+
+    const priorityOrder = { habis: 0, kritis: 1, cepat_habis: 2, aman: 3 };
+    return list.sort((a, b) => {
+      const pDiff = priorityOrder[a.status] - priorityOrder[b.status];
+      if (pDiff !== 0) return pDiff;
+      return b.terjual7Hari - a.terjual7Hari;
+    });
+  }, [products, transactions]);
+
   return (
     <div className="min-h-screen bg-[#fdfbfb] flex flex-col">
       <AdminNavbar />
 
       <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex-1">
+        {/* Banner Peringatan Stok Minimum */}
+        <LowStockAlertBanner products={products} />
+
         {/* Page Header & Period Filter */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-[#81181f] tracking-tight">
               Ringkasan Performa & Laporan
             </h1>
+
             <p className="text-xs sm:text-sm text-zinc-500 mt-1 font-medium">
               Analisis omzet, laba kotor, biaya operasional, dan laba bersih toko jajanan Anda.
             </p>
@@ -471,7 +552,7 @@ export default function DashboardOverviewPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left 2 Cols: Charts */}
+            {/* Left 2 Cols: Charts & Restock Insights */}
             <div className="lg:col-span-2 space-y-6">
               <SalesTrendChart data={trendData} periodLabel={periodLabel} />
               <ExpenseComparisonChart
@@ -481,6 +562,7 @@ export default function DashboardOverviewPage() {
                 labaKotor={labaKotor}
                 labaBersih={labaBersih}
               />
+              <StockoutInsightsList insights={restockInsights} />
             </div>
 
             {/* Right 1 Col: Top Products & Quick Links */}
@@ -489,6 +571,7 @@ export default function DashboardOverviewPage() {
                 products={topProducts}
                 totalSoldQuantity={totalSoldQuantity}
               />
+
 
               {/* Quick Navigation Cards */}
               <div className="bg-white rounded-3xl border border-[#d59a9e]/30 p-5 sm:p-6 shadow-sm space-y-3">
