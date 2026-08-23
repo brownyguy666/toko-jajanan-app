@@ -33,6 +33,7 @@ interface RawTransaction {
     id: string;
     qty: number;
     harga_saat_jual: number;
+    hpp_saat_jual?: number;
     subtotal: number;
     produk_id: string;
     produk?: {
@@ -40,6 +41,7 @@ interface RawTransaction {
       nama: string;
       kategori: string;
       harga_modal: number;
+      hpp_terkini?: number;
       harga_jual: number;
       foto_url: string | null;
     };
@@ -67,7 +69,7 @@ export default function DashboardOverviewPage() {
     async function loadDashboardData() {
       setLoading(true);
       try {
-        // 1. Ambil seluruh transaksi beserta item dan relasi produk (untuk modal)
+        // 1. Ambil seluruh transaksi beserta item (hpp_saat_jual) dan relasi produk
         const { data: trxData, error: trxErr } = await supabase
           .from("transaksi")
           .select(`
@@ -79,6 +81,7 @@ export default function DashboardOverviewPage() {
               id,
               qty,
               harga_saat_jual,
+              hpp_saat_jual,
               subtotal,
               produk_id,
               produk (
@@ -86,12 +89,14 @@ export default function DashboardOverviewPage() {
                 nama,
                 kategori,
                 harga_modal,
+                hpp_terkini,
                 harga_jual,
                 foto_url
               )
             )
           `)
           .order("tanggal", { ascending: true });
+
 
         if (trxErr) throw trxErr;
 
@@ -199,11 +204,17 @@ export default function DashboardOverviewPage() {
 
       if (trx.transaksi_item && Array.isArray(trx.transaksi_item)) {
         trx.transaksi_item.forEach((item) => {
-          const itemModal = item.produk?.harga_modal ?? 0;
+          // Prioritaskan hpp_saat_jual (snapshot saat transaksi dibuat)
+          const itemModal =
+            item.hpp_saat_jual ??
+            item.produk?.hpp_terkini ??
+            item.produk?.harga_modal ??
+            0;
           const itemCost = itemModal * item.qty;
           modal += itemCost;
           const itemGrossProfit = (item.harga_saat_jual - itemModal) * item.qty;
           trxLaba += itemGrossProfit;
+
 
           // Aggregasi Produk Terlaris
           const prodId = item.produk_id || item.produk?.id || item.id;

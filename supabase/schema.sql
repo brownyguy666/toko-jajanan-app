@@ -1,4 +1,4 @@
-﻿-- ==============================================================================
+-- ==============================================================================
 -- SKEMA DATABASE & ROW LEVEL SECURITY (RLS) TOKO JAJANAN
 -- ==============================================================================
 
@@ -23,13 +23,35 @@ CREATE TABLE IF NOT EXISTS public.produk (
     kategori TEXT NOT NULL,
     harga_jual INTEGER NOT NULL CHECK (harga_jual >= 0),
     harga_modal INTEGER NOT NULL CHECK (harga_modal >= 0),
+    hpp_terkini INTEGER NOT NULL DEFAULT 0 CHECK (hpp_terkini >= 0),
     stok INTEGER NOT NULL DEFAULT 0 CHECK (stok >= 0),
     foto_url TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 4. TABEL TRANSAKSI
+-- 4. TABEL BAHAN BAKU
+CREATE TABLE IF NOT EXISTS public.bahan_baku (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    nama TEXT NOT NULL,
+    satuan_terkecil TEXT NOT NULL CHECK (satuan_terkecil IN ('gram', 'ml', 'pcs')),
+    harga_per_satuan_terkecil NUMERIC NOT NULL CHECK (harga_per_satuan_terkecil >= 0),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 5. TABEL RESEP (KOMPOSISI BAHAN BAKU PER 1 UNIT PRODUK)
+CREATE TABLE IF NOT EXISTS public.resep (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    produk_id UUID NOT NULL REFERENCES public.produk(id) ON DELETE CASCADE,
+    bahan_baku_id UUID NOT NULL REFERENCES public.bahan_baku(id) ON DELETE CASCADE,
+    jumlah_terpakai NUMERIC NOT NULL CHECK (jumlah_terpakai > 0),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT unique_produk_bahan UNIQUE (produk_id, bahan_baku_id)
+);
+
+-- 6. TABEL TRANSAKSI
 CREATE TABLE IF NOT EXISTS public.transaksi (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     kasir_id UUID NOT NULL REFERENCES public.profiles(id),
@@ -39,18 +61,19 @@ CREATE TABLE IF NOT EXISTS public.transaksi (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 5. TABEL TRANSAKSI_ITEM
+-- 7. TABEL TRANSAKSI_ITEM
 CREATE TABLE IF NOT EXISTS public.transaksi_item (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     transaksi_id UUID NOT NULL REFERENCES public.transaksi(id) ON DELETE CASCADE,
     produk_id UUID NOT NULL REFERENCES public.produk(id),
     qty INTEGER NOT NULL CHECK (qty > 0),
     harga_saat_jual INTEGER NOT NULL CHECK (harga_saat_jual >= 0),
+    hpp_saat_jual INTEGER NOT NULL DEFAULT 0 CHECK (hpp_saat_jual >= 0),
     subtotal INTEGER NOT NULL CHECK (subtotal >= 0),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 6. TABEL PENGELUARAN
+-- 8. TABEL PENGELUARAN
 CREATE TABLE IF NOT EXISTS public.pengeluaran (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tanggal TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -59,6 +82,7 @@ CREATE TABLE IF NOT EXISTS public.pengeluaran (
     keterangan TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
 
 -- ==============================================================================
 -- FUNGSI & TRIGGER HELPER UNTUK PROFILES & ROLES
@@ -184,6 +208,69 @@ CREATE POLICY "Hanya Owner yang dapat mengakses pengeluaran"
   TO authenticated
   USING (public.is_owner());
 
+-- 6. POLICIES UNTUK BAHAN BAKU & RESEP
+ALTER TABLE public.bahan_baku ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.resep ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Hanya Owner yang dapat mengelola bahan baku"
+  ON public.bahan_baku FOR ALL
+  TO authenticated
+  USING (public.is_owner());
+
+CREATE POLICY "Hanya Owner yang dapat mengelola resep"
+  ON public.resep FOR ALL
+  TO authenticated
+  USING (public.is_owner());
+
+-- ==============================================================================
+-- FUNGSI & TRIGGER PERHITUNGAN HPP DINAMIS
+-- ==============================================================================
+CREATE OR REPLACE FUNCTION public.recalculate_produk_hpp()
+RETURNS TRIGGER AS $$
+DECLARE
+  target_produk_id UUID;
+BEGIN
+  IF TG_TABLE_NAME = 'resep' THEN
+    target_produk_id := COALESCE(NEW.produk_id, OLD.produk_id);
+    
+    UPDATE public.produk
+    SET hpp_terkini = COALESCE((
+      SELECT ROUND(SUM(r.jumlah_terpakai * b.harga_per_satuan_terkecil))::INTEGER
+      FROM public.resep r
+      JOIN public.bahan_baku b ON b.id = r.bahan_baku_id
+      WHERE r.produk_id = target_produk_id
+    ), harga_modal, 0),
+    updated_at = now()
+    WHERE id = target_produk_id;
+    
+  ELSIF TG_TABLE_NAME = 'bahan_baku' THEN
+    UPDATE public.produk p
+    SET hpp_terkini = COALESCE((
+      SELECT ROUND(SUM(r.jumlah_terpakai * b.harga_per_satuan_terkecil))::INTEGER
+      FROM public.resep r
+      JOIN public.bahan_baku b ON b.id = r.bahan_baku_id
+      WHERE r.produk_id = p.id
+    ), p.harga_modal, 0),
+    updated_at = now()
+    WHERE p.id IN (
+      SELECT DISTINCT produk_id FROM public.resep WHERE bahan_baku_id = NEW.id
+    );
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_resep_update_hpp ON public.resep;
+CREATE TRIGGER trg_resep_update_hpp
+  AFTER INSERT OR UPDATE OR DELETE ON public.resep
+  FOR EACH ROW EXECUTE FUNCTION public.recalculate_produk_hpp();
+
+DROP TRIGGER IF EXISTS trg_bahan_baku_update_hpp ON public.bahan_baku;
+CREATE TRIGGER trg_bahan_baku_update_hpp
+  AFTER UPDATE OF harga_per_satuan_terkecil ON public.bahan_baku
+  FOR EACH ROW EXECUTE FUNCTION public.recalculate_produk_hpp();
+
 -- ==============================================================================
 -- STORAGE BUCKET UNTUK FOTO PRODUK
 -- ==============================================================================
@@ -200,3 +287,4 @@ CREATE POLICY "Hanya Owner yang dapat upload & kelola foto produk"
   ON storage.objects FOR ALL
   TO authenticated
   USING (bucket_id = 'produk-foto' AND public.is_owner());
+

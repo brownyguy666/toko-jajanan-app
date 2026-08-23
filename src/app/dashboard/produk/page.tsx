@@ -169,10 +169,13 @@ export default function ProdukManagementPage() {
     0
   );
   const totalPotentialProfit = products.reduce(
-    (acc, p) =>
-      acc + ((p.harga_jual || 0) - (p.harga_modal || 0)) * (p.stok || 0),
+    (acc, p) => {
+      const hpp = p.hpp_terkini ?? p.harga_modal ?? 0;
+      return acc + ((p.harga_jual || 0) - hpp) * (p.stok || 0);
+    },
     0
   );
+
 
   return (
     <div className="min-h-screen bg-[#fdfbfb] flex flex-col">
@@ -404,7 +407,7 @@ export default function ProdukManagementPage() {
                     <th className="py-3.5 px-4">Produk</th>
                     <th className="py-3.5 px-4">Kategori</th>
                     <th className="py-3.5 px-4 text-right">Harga Jual</th>
-                    <th className="py-3.5 px-4 text-right">Harga Modal</th>
+                    <th className="py-3.5 px-4 text-right">HPP / Modal</th>
                     <th className="py-3.5 px-4 text-right">Margin / Porsi</th>
                     <th className="py-3.5 px-4 text-center">Stok</th>
                     <th className="py-3.5 px-4 text-center">Aksi</th>
@@ -412,7 +415,8 @@ export default function ProdukManagementPage() {
                 </thead>
                 <tbody className="divide-y divide-[#efe6e6]">
                   {filteredProducts.map((p) => {
-                    const laba = p.harga_jual - p.harga_modal;
+                    const effectiveHpp = p.hpp_terkini ?? p.harga_modal ?? 0;
+                    const laba = p.harga_jual - effectiveHpp;
                     const margin =
                       p.harga_jual > 0
                         ? Math.round((laba / p.harga_jual) * 100)
@@ -465,9 +469,16 @@ export default function ProdukManagementPage() {
                           {formatRupiah(p.harga_jual)}
                         </td>
 
-                        {/* Harga Modal */}
-                        <td className="py-3 px-4 text-right text-zinc-500 font-medium">
-                          {formatRupiah(p.harga_modal)}
+                        {/* HPP / Modal */}
+                        <td className="py-3 px-4 text-right">
+                          <span className="font-bold text-zinc-700 block">
+                            {formatRupiah(effectiveHpp)}
+                          </span>
+                          {p.hpp_terkini !== undefined && p.hpp_terkini > 0 && (
+                            <span className="text-[10px] text-emerald-600 font-semibold">
+                              HPP Resep
+                            </span>
+                          )}
                         </td>
 
                         {/* Laba & Margin */}
@@ -479,6 +490,7 @@ export default function ProdukManagementPage() {
                             {margin}% laba
                           </span>
                         </td>
+
 
                         {/* Stok Badge */}
                         <td className="py-3 px-4 text-center">

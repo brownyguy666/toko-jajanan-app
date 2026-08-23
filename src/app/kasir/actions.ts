@@ -40,6 +40,8 @@ interface ProductDbRow {
   id: string;
   nama: string;
   harga_jual: number;
+  harga_modal: number;
+  hpp_terkini?: number;
   stok: number;
 }
 
@@ -85,7 +87,7 @@ export async function processTransactionAction(
     const productIds = items.map((i) => i.produk_id);
     const { data: rawDbProducts, error: prodErr } = await supabase
       .from("produk")
-      .select("id, nama, harga_jual, stok")
+      .select("id, nama, harga_jual, harga_modal, hpp_terkini, stok")
       .in("id", productIds);
 
     if (prodErr || !rawDbProducts) {
@@ -103,6 +105,7 @@ export async function processTransactionAction(
       nama: string;
       qty: number;
       harga_saat_jual: number;
+      hpp_saat_jual: number;
       subtotal: number;
       newStock: number;
     }[] = [];
@@ -124,6 +127,7 @@ export async function processTransactionAction(
       }
 
       const itemPrice = dbProd.harga_jual;
+      const itemHpp = dbProd.hpp_terkini || dbProd.harga_modal || 0;
       const subtotal = itemPrice * item.qty;
       calculatedTotal += subtotal;
 
@@ -132,6 +136,7 @@ export async function processTransactionAction(
         nama: dbProd.nama,
         qty: item.qty,
         harga_saat_jual: itemPrice,
+        hpp_saat_jual: itemHpp,
         subtotal: subtotal,
         newStock: dbProd.stok - item.qty,
       });
@@ -167,12 +172,13 @@ export async function processTransactionAction(
 
     const transaksiId = (newTransaksi as { id: string }).id;
 
-    // 4. Simpan baris transaksi_item
+    // 4. Simpan baris transaksi_item dengan snapshot hpp_saat_jual
     const itemsToInsert = validatedItems.map((item) => ({
       transaksi_id: transaksiId,
       produk_id: item.produk_id,
       qty: item.qty,
       harga_saat_jual: item.harga_saat_jual,
+      hpp_saat_jual: item.hpp_saat_jual,
       subtotal: item.subtotal,
     }));
 
@@ -183,6 +189,7 @@ export async function processTransactionAction(
     if (itemsErr) {
       throw new Error(`Gagal menyimpan rincian item transaksi: ${itemsErr.message}`);
     }
+
 
     // 5. Potong stok produk secara otomatis
     for (const item of validatedItems) {

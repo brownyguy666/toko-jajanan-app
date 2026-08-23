@@ -16,6 +16,7 @@ import {
   X,
   Shield,
   ExternalLink,
+  Wheat,
 } from "lucide-react";
 
 export function AdminNavbar() {
@@ -23,7 +24,6 @@ export function AdminNavbar() {
   const { profile, user, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const displayName = profile?.nama || user?.user_metadata?.nama || "Hidayatul Fitri";
-
 
   const navItems = [
     {
@@ -39,6 +39,12 @@ export function AdminNavbar() {
       active: pathname.startsWith("/dashboard/produk"),
     },
     {
+      name: "Bahan Baku & HPP",
+      href: "/dashboard/bahan-baku",
+      icon: Wheat,
+      active: pathname.startsWith("/dashboard/bahan-baku"),
+    },
+    {
       name: "Kelola Pegawai",
       href: "/dashboard/pegawai",
       icon: Users,
@@ -51,6 +57,7 @@ export function AdminNavbar() {
       active: pathname.startsWith("/dashboard/pengeluaran"),
     },
   ];
+
 
   return (
     <header className="sticky top-0 z-40 bg-linear-to-r from-[#81181f] via-primary-hover to-[#d62934] text-white shadow-lg shadow-[#81181f]/10">

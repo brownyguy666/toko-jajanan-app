@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
-import { Produk } from "@/types/database";
+import { Produk, BahanBaku, Resep } from "@/types/database";
 import { formatRupiah, parseRupiah } from "@/lib/utils";
 import {
   X,
@@ -13,6 +13,11 @@ import {
   Package,
   AlertCircle,
   CheckCircle2,
+  Wheat,
+  Plus,
+  Trash2,
+  Sparkles,
+  Info,
 } from "lucide-react";
 
 interface ProductModalProps {
@@ -32,15 +37,22 @@ const DEFAULT_CATEGORIES = [
   "Lainnya",
 ];
 
+interface RecipeRowState {
+  bahan_baku_id: string;
+  jumlah_terpakai: number;
+}
+
 // Inner Form component with clean state initialization via key
 function ProductFormContent({
   productToEdit,
   onClose,
   onSuccess,
+  bahanBakuList,
 }: {
   productToEdit?: Produk | null;
   onClose: () => void;
   onSuccess: () => void;
+  bahanBakuList: BahanBaku[];
 }) {
   const supabase = createClient();
   const isEditing = Boolean(productToEdit);
@@ -63,12 +75,18 @@ function ProductFormContent({
     productToEdit ? productToEdit.harga_jual.toString() : ""
   );
   const [hargaModalStr, setHargaModalStr] = useState(() =>
-    productToEdit ? productToEdit.harga_modal.toString() : ""
+    productToEdit
+      ? (productToEdit.hpp_terkini || productToEdit.harga_modal || 0).toString()
+      : ""
   );
   const [stokStr, setStokStr] = useState(() =>
     productToEdit ? productToEdit.stok.toString() : "20"
   );
   const [fotoUrl, setFotoUrl] = useState<string | null>(() => productToEdit?.foto_url || null);
+
+  // Recipe rows state
+  const [recipeRows, setRecipeRows] = useState<RecipeRowState[]>([]);
+  const [loadingRecipe, setLoadingRecipe] = useState(false);
 
   // File upload state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -78,12 +96,94 @@ function ProductFormContent({
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Real-time calculations
+  // Fetch existing recipe if editing
+  useEffect(() => {
+    let isMounted = true;
+    if (productToEdit?.id) {
+      setLoadingRecipe(true);
+      supabase
+        .from("resep")
+        .select("bahan_baku_id, jumlah_terpakai")
+        .eq("produk_id", productToEdit.id)
+        .then(({ data, error }) => {
+          if (isMounted) {
+            if (!error && data) {
+              const rows = data as unknown as { bahan_baku_id: string; jumlah_terpakai: number }[];
+              setRecipeRows(
+                rows.map((r) => ({
+                  bahan_baku_id: r.bahan_baku_id,
+                  jumlah_terpakai: Number(r.jumlah_terpakai),
+                }))
+              );
+            }
+            setLoadingRecipe(false);
+          }
+
+        });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [productToEdit?.id, supabase]);
+
+  // Bahan baku lookup map
+  const bahanMap = new Map<string, BahanBaku>(bahanBakuList.map((b) => [b.id, b]));
+
+  // Calculate live recipe HPP
+  const hasRecipe = recipeRows.length > 0;
+  const calculatedRecipeHpp = recipeRows.reduce((sum, row) => {
+    const bahan = bahanMap.get(row.bahan_baku_id);
+    if (!bahan) return sum;
+    return sum + (row.jumlah_terpakai * Number(bahan.harga_per_satuan_terkecil) || 0);
+  }, 0);
+
+  const effectiveHpp = hasRecipe
+    ? Math.round(calculatedRecipeHpp)
+    : parseRupiah(hargaModalStr);
+
   const hargaJual = parseRupiah(hargaJualStr);
-  const hargaModal = parseRupiah(hargaModalStr);
   const stok = parseInt(stokStr, 10) || 0;
-  const labaPerItem = hargaJual - hargaModal;
+  const labaPerItem = hargaJual - effectiveHpp;
   const marginPercent = hargaJual > 0 ? Math.round((labaPerItem / hargaJual) * 100) : 0;
+
+  // Recipe row operations
+  const handleAddRecipeRow = () => {
+    const availableBahan = bahanBakuList.find(
+      (b) => !recipeRows.some((r) => r.bahan_baku_id === b.id)
+    );
+    if (!availableBahan) return;
+
+    setRecipeRows((prev) => [
+      ...prev,
+      {
+        bahan_baku_id: availableBahan.id,
+        jumlah_terpakai: availableBahan.satuan_terkecil === "pcs" ? 1 : 10,
+      },
+    ]);
+  };
+
+  const handleUpdateRecipeRow = (
+    index: number,
+    field: "bahan_baku_id" | "jumlah_terpakai",
+    value: string | number
+  ) => {
+    setRecipeRows((prev) => {
+      const next = [...prev];
+      if (field === "bahan_baku_id") {
+        next[index] = { ...next[index], bahan_baku_id: value as string };
+      } else {
+        next[index] = {
+          ...next[index],
+          jumlah_terpakai: Math.max(0.01, Number(value) || 0),
+        };
+      }
+      return next;
+    });
+  };
+
+  const handleRemoveRecipeRow = (index: number) => {
+    setRecipeRows((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -112,8 +212,8 @@ function ProductFormContent({
       return;
     }
 
-    if (hargaModal < 0) {
-      setErrorMsg("Harga modal tidak boleh negatif.");
+    if (effectiveHpp < 0) {
+      setErrorMsg("HPP / Modal tidak boleh negatif.");
       return;
     }
 
@@ -127,7 +227,7 @@ function ProductFormContent({
     try {
       let finalFotoUrl = fotoUrl;
 
-      // Upload file to Supabase Storage jika ada file baru yang dipilih
+      // Upload file to Supabase Storage jika ada file baru
       if (selectedFile) {
         const fileExt = selectedFile.name.split(".").pop() || "jpg";
         const uniqueToken = crypto.randomUUID();
@@ -151,7 +251,9 @@ function ProductFormContent({
         finalFotoUrl = publicUrlData.publicUrl;
       }
 
-      if (isEditing && productToEdit) {
+      let targetProductId = productToEdit?.id;
+
+      if (isEditing && targetProductId) {
         // UPDATE PRODUK
         const { error: updateError } = await supabase
           .from("produk")
@@ -159,32 +261,62 @@ function ProductFormContent({
             nama: nama.trim(),
             kategori: finalKategori,
             harga_jual: hargaJual,
-            harga_modal: hargaModal,
+            harga_modal: effectiveHpp,
+            hpp_terkini: effectiveHpp,
             stok: stok,
             foto_url: finalFotoUrl,
             updated_at: new Date().toISOString(),
           } as never)
-          .eq("id", productToEdit.id);
+          .eq("id", targetProductId);
 
         if (updateError) throw updateError;
       } else {
         // INSERT PRODUK BARU
-        const { error: insertError } = await supabase.from("produk").insert({
-          nama: nama.trim(),
-          kategori: finalKategori,
-          harga_jual: hargaJual,
-          harga_modal: hargaModal,
-          stok: stok,
-          foto_url: finalFotoUrl,
-        } as never);
+        const { data: newProd, error: insertError } = await supabase
+          .from("produk")
+          .insert({
+            nama: nama.trim(),
+            kategori: finalKategori,
+            harga_jual: hargaJual,
+            harga_modal: effectiveHpp,
+            hpp_terkini: effectiveHpp,
+            stok: stok,
+            foto_url: finalFotoUrl,
+          } as never)
+          .select("id")
+          .single();
 
-        if (insertError) throw insertError;
+        if (insertError || !newProd) throw insertError;
+        targetProductId = (newProd as { id: string }).id;
+      }
+
+      // SYNC RESEP ITEMS
+      if (targetProductId) {
+        // 1. Hapus resep lama
+        await supabase.from("resep").delete().eq("produk_id", targetProductId);
+
+        // 2. Insert resep baru jika ada
+        if (recipeRows.length > 0) {
+          const resepToInsert = recipeRows.map((r) => ({
+            produk_id: targetProductId,
+            bahan_baku_id: r.bahan_baku_id,
+            jumlah_terpakai: r.jumlah_terpakai,
+          }));
+
+          const { error: resepErr } = await supabase
+            .from("resep")
+            .insert(resepToInsert as never);
+
+          if (resepErr) {
+            console.warn("Recipe insert notice:", resepErr.message);
+          }
+        }
       }
 
       onSuccess();
       onClose();
     } catch (err: unknown) {
-      console.error("Error saving product:", err);
+      console.error("Error saving product & recipe:", err);
       const message = err instanceof Error ? err.message : "Gagal menyimpan produk.";
       setErrorMsg(message);
     } finally {
@@ -193,7 +325,7 @@ function ProductFormContent({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+    <form onSubmit={handleSubmit} className="p-6 space-y-5 max-h-[82vh] overflow-y-auto">
       {errorMsg && (
         <div className="p-3.5 rounded-2xl bg-[#d62934]/10 border border-[#d62934]/30 flex items-start gap-2.5 text-xs text-[#81181f]">
           <AlertCircle className="w-4 h-4 text-[#d62934] shrink-0 mt-0.5" />
@@ -300,11 +432,134 @@ function ProductFormContent({
         )}
       </div>
 
-      {/* 4. Harga Jual & Modal */}
+      {/* 4. SEKSI RESEP & BAHAN BAKU (HPP OTOMATIS) */}
+      <div className="p-4 rounded-3xl bg-[#efe6e6]/70 border border-[#d59a9e]/50 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Wheat className="w-4 h-4 text-[#d62934]" />
+            <span className="text-xs font-extrabold text-[#81181f] uppercase tracking-wider">
+              Komposisi Resep (HPP Otomatis)
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleAddRecipeRow}
+            disabled={bahanBakuList.length === 0}
+            className="inline-flex items-center gap-1 text-xs font-extrabold text-[#d62934] hover:underline disabled:opacity-50 cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Tambah Bahan</span>
+          </button>
+        </div>
+
+        {bahanBakuList.length === 0 ? (
+          <div className="p-3 bg-white/80 rounded-2xl border border-[#d59a9e]/30 text-center">
+            <p className="text-xs text-zinc-500">
+              Belum ada bahan baku di database. Anda bisa menambahkan bahan baku di menu{" "}
+              <strong>Kelola Bahan Baku</strong> untuk perhitungan HPP otomatis.
+            </p>
+          </div>
+        ) : loadingRecipe ? (
+          <p className="text-xs text-zinc-500 py-2 text-center">Memuat resep produk...</p>
+        ) : recipeRows.length === 0 ? (
+          <div className="p-3 bg-white/80 rounded-2xl border border-[#d59a9e]/30 flex items-center justify-between gap-2 text-xs text-zinc-600">
+            <span className="flex items-center gap-1.5">
+              <Info className="w-3.5 h-3.5 text-[#d59a9e]" />
+              <span>Belum menyusun resep bahan baku untuk produk ini.</span>
+            </span>
+            <button
+              type="button"
+              onClick={handleAddRecipeRow}
+              className="px-2.5 py-1 rounded-xl bg-[#d62934] text-white font-bold text-[11px]"
+            >
+              + Susun Resep
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {recipeRows.map((row, idx) => {
+              const selectedBahan = bahanMap.get(row.bahan_baku_id);
+              const subtotalBahan =
+                selectedBahan && row.jumlah_terpakai
+                  ? row.jumlah_terpakai * Number(selectedBahan.harga_per_satuan_terkecil)
+                  : 0;
+
+              return (
+                <div
+                  key={idx}
+                  className="p-2.5 bg-white rounded-2xl border border-[#d59a9e]/30 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 text-xs shadow-2xs"
+                >
+                  {/* Select Bahan */}
+                  <div className="flex-1">
+                    <select
+                      value={row.bahan_baku_id}
+                      onChange={(e) =>
+                        handleUpdateRecipeRow(idx, "bahan_baku_id", e.target.value)
+                      }
+                      className="input-field text-xs py-1.5"
+                    >
+                      {bahanBakuList.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.nama} ({formatRupiah(b.harga_per_satuan_terkecil)}/{b.satuan_terkecil})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Input Qty */}
+                  <div className="flex items-center gap-1.5 w-full sm:w-44">
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="any"
+                      value={row.jumlah_terpakai}
+                      onChange={(e) =>
+                        handleUpdateRecipeRow(idx, "jumlah_terpakai", e.target.value)
+                      }
+                      placeholder="Qty"
+                      className="input-field text-xs py-1.5 text-right w-20"
+                    />
+                    <span className="text-[11px] font-bold text-zinc-500 w-12 truncate">
+                      {selectedBahan?.satuan_terkecil || ""}
+                    </span>
+                    <span className="text-xs font-extrabold text-[#81181f] w-16 text-right truncate">
+                      {formatRupiah(subtotalBahan)}
+                    </span>
+                  </div>
+
+                  {/* Remove Row */}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveRecipeRow(idx)}
+                    className="p-1 text-zinc-400 hover:text-red-600 transition-colors self-end sm:self-center cursor-pointer"
+                    title="Hapus Bahan"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              );
+            })}
+
+            {/* Total HPP Resep Indicator */}
+            <div className="p-2.5 rounded-2xl bg-white border border-[#47d1b5]/60 flex items-center justify-between text-xs">
+              <span className="font-bold text-[#0c6b57] flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5 text-[#47d1b5]" />
+                <span>Total HPP Terkini (Resep):</span>
+              </span>
+              <span className="font-extrabold text-sm text-[#0c6b57]">
+                {formatRupiah(calculatedRecipeHpp)} / porsi
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 5. Harga Jual & Modal (Manual / Otomatis) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1.5">
-            Harga Jual (Rp) *
+            Harga Jual ke Pelanggan (Rp) *
           </label>
           <div className="relative">
             <input
@@ -320,18 +575,24 @@ function ProductFormContent({
 
         <div>
           <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1.5">
-            Harga Modal (Rp) *
+            {hasRecipe ? "HPP Produk (Dari Resep)" : "Harga Modal Manual (Rp) *"}
           </label>
           <div className="relative">
             <input
               type="text"
               required
-              value={hargaModalStr ? formatRupiah(hargaModal) : ""}
+              disabled={hasRecipe}
+              value={formatRupiah(effectiveHpp)}
               onChange={(e) => setHargaModalStr(e.target.value)}
               placeholder="Rp 0"
-              className="input-field"
+              className={`input-field ${hasRecipe ? "bg-zinc-100 font-bold text-zinc-700 cursor-not-allowed" : ""}`}
             />
           </div>
+          {hasRecipe && (
+            <span className="text-[10px] text-emerald-700 mt-1 block">
+              ✓ Terhitung otomatis dari resep bahan di atas.
+            </span>
+          )}
         </div>
       </div>
 
@@ -360,7 +621,7 @@ function ProductFormContent({
         </div>
       </div>
 
-      {/* 5. Stok Jajanan */}
+      {/* 6. Stok Jajanan */}
       <div>
         <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1.5">
           Stok Tersedia (Porsi / Pcs) *
@@ -397,7 +658,7 @@ function ProductFormContent({
           ) : (
             <>
               <CheckCircle2 className="w-4 h-4" />
-              <span>{isEditing ? "Simpan Perubahan" : "Tambah Produk"}</span>
+              <span>{isEditing ? "Simpan Perubahan & Resep" : "Tambah Produk & Resep"}</span>
             </>
           )}
         </button>
@@ -412,13 +673,34 @@ export function ProductModal({
   onSuccess,
   productToEdit,
 }: ProductModalProps) {
+  const [bahanBakuList, setBahanBakuList] = useState<BahanBaku[]>([]);
+  const supabase = createClient();
+
+  useEffect(() => {
+    let isMounted = true;
+    if (isOpen) {
+      supabase
+        .from("bahan_baku")
+        .select("*")
+        .order("nama", { ascending: true })
+        .then(({ data }) => {
+          if (isMounted && data) {
+            setBahanBakuList(data as unknown as BahanBaku[]);
+          }
+        });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, supabase]);
+
   if (!isOpen) return null;
 
   const isEditing = Boolean(productToEdit);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto animate-fadeIn">
-      <div className="bg-white rounded-3xl border border-[#d59a9e]/40 shadow-2xl max-w-lg w-full overflow-hidden my-8">
+      <div className="bg-white rounded-3xl border border-[#d59a9e]/40 shadow-2xl max-w-xl w-full overflow-hidden my-8">
         {/* Modal Header */}
         <div className="bg-linear-to-r from-[#81181f] to-[#d62934] text-white px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -426,7 +708,7 @@ export function ProductModal({
               <Package className="w-4 h-4 text-white" />
             </div>
             <h3 className="font-extrabold text-base tracking-tight">
-              {isEditing ? "Edit Data Jajanan" : "Tambah Produk Jajanan"}
+              {isEditing ? "Edit Data Jajanan & Resep" : "Tambah Produk Jajanan Baru"}
             </h3>
           </div>
 
@@ -438,12 +720,13 @@ export function ProductModal({
           </button>
         </div>
 
-        {/* Modal Form keyed by edit ID to cleanly initialize state without effects */}
+        {/* Modal Form */}
         <ProductFormContent
           key={productToEdit?.id || "new-product"}
           productToEdit={productToEdit}
           onClose={onClose}
           onSuccess={onSuccess}
+          bahanBakuList={bahanBakuList}
         />
       </div>
     </div>
