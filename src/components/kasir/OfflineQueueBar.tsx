@@ -63,10 +63,12 @@ export function OfflineQueueBar({ onSyncComplete }: OfflineQueueBarProps) {
   }, [isSyncing, updateQueueState, onSyncComplete]);
 
   useEffect(() => {
-    // Auto-sync jika saat mount kondisi online dan ada antrian tertunda
-    if (typeof navigator !== "undefined" && navigator.onLine && getOfflineQueue().length > 0) {
-      handleTriggerSync();
-    }
+    // Auto-sync tertunda secara asinkron agar tidak memicu cascading renders pada initial mount
+    const initialSyncTimer = setTimeout(() => {
+      if (typeof navigator !== "undefined" && navigator.onLine && getOfflineQueue().length > 0) {
+        handleTriggerSync();
+      }
+    }, 200);
 
     const handleOnline = () => {
       setIsOnline(true);
@@ -104,6 +106,7 @@ export function OfflineQueueBar({ onSyncComplete }: OfflineQueueBarProps) {
     window.addEventListener("offline-sync-finished", handleSyncEnd);
 
     return () => {
+      clearTimeout(initialSyncTimer);
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
       window.removeEventListener("offline-queue-changed", handleQueueChange);
@@ -111,6 +114,7 @@ export function OfflineQueueBar({ onSyncComplete }: OfflineQueueBarProps) {
       window.removeEventListener("offline-sync-finished", handleSyncEnd);
     };
   }, [handleTriggerSync, updateQueueState, onSyncComplete]);
+
 
   const queueCount = queue.length;
 
