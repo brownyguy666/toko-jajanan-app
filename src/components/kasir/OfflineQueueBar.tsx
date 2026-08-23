@@ -8,7 +8,6 @@ import {
 } from "@/lib/offlineQueue";
 import {
   WifiOff,
-  Wifi,
   RefreshCw,
   CheckCircle2,
   AlertTriangle,
@@ -21,8 +20,14 @@ interface OfflineQueueBarProps {
 }
 
 export function OfflineQueueBar({ onSyncComplete }: OfflineQueueBarProps) {
-  const [isOnline, setIsOnline] = useState<boolean>(true);
-  const [queue, setQueue] = useState<OfflineTransaction[]>([]);
+  // Initialize state synchronously from browser API to avoid cascading renders
+  const [isOnline, setIsOnline] = useState<boolean>(() => {
+    if (typeof window !== "undefined" && typeof navigator !== "undefined") {
+      return navigator.onLine;
+    }
+    return true;
+  });
+  const [queue, setQueue] = useState<OfflineTransaction[]>(() => getOfflineQueue());
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [syncFeedback, setSyncFeedback] = useState<{
     type: "success" | "error";
@@ -34,7 +39,7 @@ export function OfflineQueueBar({ onSyncComplete }: OfflineQueueBarProps) {
   }, []);
 
   const handleTriggerSync = useCallback(async () => {
-    if (!navigator.onLine || isSyncing) return;
+    if (typeof navigator === "undefined" || !navigator.onLine || isSyncing) return;
     setIsSyncing(true);
     setSyncFeedback(null);
 
@@ -58,15 +63,9 @@ export function OfflineQueueBar({ onSyncComplete }: OfflineQueueBarProps) {
   }, [isSyncing, updateQueueState, onSyncComplete]);
 
   useEffect(() => {
-    // Initial State Check
-    if (typeof window !== "undefined") {
-      setIsOnline(navigator.onLine);
-      updateQueueState();
-
-      // Auto-sync jika online dan ada antrian tertunda
-      if (navigator.onLine && getOfflineQueue().length > 0) {
-        handleTriggerSync();
-      }
+    // Auto-sync jika saat mount kondisi online dan ada antrian tertunda
+    if (typeof navigator !== "undefined" && navigator.onLine && getOfflineQueue().length > 0) {
+      handleTriggerSync();
     }
 
     const handleOnline = () => {

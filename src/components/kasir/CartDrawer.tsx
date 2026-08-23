@@ -19,8 +19,8 @@ import {
   AlertCircle,
   CheckCircle2,
   ArrowRight,
-  WifiOff,
 } from "lucide-react";
+
 
 
 export interface CartItemWithStock extends CartItemPayload {
