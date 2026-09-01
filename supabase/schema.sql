@@ -26,10 +26,15 @@ CREATE TABLE IF NOT EXISTS public.produk (
     hpp_terkini INTEGER NOT NULL DEFAULT 0 CHECK (hpp_terkini >= 0),
     stok INTEGER NOT NULL DEFAULT 0 CHECK (stok >= 0),
     stok_minimum INTEGER NOT NULL DEFAULT 5 CHECK (stok_minimum >= 0),
+    langkah_pembuatan TEXT,
+    catatan_resep TEXT,
+    porsi_standar INTEGER NOT NULL DEFAULT 1 CHECK (porsi_standar > 0),
+    durasi_menit INTEGER NOT NULL DEFAULT 30 CHECK (durasi_menit >= 0),
     foto_url TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
 
 
 -- 4. TABEL BAHAN BAKU

@@ -41,11 +41,16 @@ export interface Produk {
   hpp_terkini?: number;
   stok: number;
   stok_minimum?: number;
+  langkah_pembuatan?: string | null;
+  catatan_resep?: string | null;
+  porsi_standar?: number;
+  durasi_menit?: number;
   foto_url: string | null;
   created_at?: string;
   updated_at?: string;
   resep?: Resep[];
 }
+
 
 
 export interface Transaksi {
@@ -171,6 +176,10 @@ export type Database = {
           hpp_terkini?: number;
           stok?: number;
           stok_minimum?: number;
+          langkah_pembuatan?: string | null;
+          catatan_resep?: string | null;
+          porsi_standar?: number;
+          durasi_menit?: number;
           foto_url?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -184,12 +193,17 @@ export type Database = {
           hpp_terkini?: number;
           stok?: number;
           stok_minimum?: number;
+          langkah_pembuatan?: string | null;
+          catatan_resep?: string | null;
+          porsi_standar?: number;
+          durasi_menit?: number;
           foto_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Relationships: [];
       };
+
 
       transaksi: {
         Row: Transaksi;

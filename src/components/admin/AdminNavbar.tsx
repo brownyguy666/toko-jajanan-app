@@ -17,6 +17,7 @@ import {
   Shield,
   ExternalLink,
   Wheat,
+  ChefHat,
 } from "lucide-react";
 
 export function AdminNavbar() {
@@ -45,6 +46,12 @@ export function AdminNavbar() {
       active: pathname.startsWith("/dashboard/bahan-baku"),
     },
     {
+      name: "Buku Resep",
+      href: "/dashboard/resep",
+      icon: ChefHat,
+      active: pathname.startsWith("/dashboard/resep"),
+    },
+    {
       name: "Kelola Pegawai",
       href: "/dashboard/pegawai",
       icon: Users,
@@ -57,6 +64,7 @@ export function AdminNavbar() {
       active: pathname.startsWith("/dashboard/pengeluaran"),
     },
   ];
+
 
 
   return (

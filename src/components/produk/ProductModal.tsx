@@ -18,7 +18,11 @@ import {
   Trash2,
   Sparkles,
   Info,
+  ChefHat,
+  Clock,
+  UtensilsCrossed,
 } from "lucide-react";
+
 
 interface ProductModalProps {
   isOpen: boolean;
@@ -89,10 +93,20 @@ function ProductFormContent({
   );
   const [fotoUrl, setFotoUrl] = useState<string | null>(() => productToEdit?.foto_url || null);
 
+  // Recipe steps & notes state
+  const [langkahPembuatan, setLangkahPembuatan] = useState(() => productToEdit?.langkah_pembuatan || "");
+  const [catatanResep, setCatatanResep] = useState(() => productToEdit?.catatan_resep || "");
+  const [durasiMenitStr, setDurasiMenitStr] = useState(() =>
+    productToEdit?.durasi_menit ? productToEdit.durasi_menit.toString() : "30"
+  );
+  const [porsiStandarStr, setPorsiStandarStr] = useState(() =>
+    productToEdit?.porsi_standar ? productToEdit.porsi_standar.toString() : "1"
+  );
 
   // Recipe rows state
   const [recipeRows, setRecipeRows] = useState<RecipeRowState[]>([]);
   const [loadingRecipe, setLoadingRecipe] = useState(false);
+
 
   // File upload state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -229,6 +243,8 @@ function ProductFormContent({
         : kategori;
 
     const stokMinimum = Math.max(0, parseInt(stokMinimumStr, 10) || 5);
+    const durasiMenit = Math.max(1, parseInt(durasiMenitStr, 10) || 30);
+    const porsiStandar = Math.max(1, parseInt(porsiStandarStr, 10) || 1);
 
     setLoading(true);
 
@@ -273,6 +289,10 @@ function ProductFormContent({
             hpp_terkini: effectiveHpp,
             stok: stok,
             stok_minimum: stokMinimum,
+            langkah_pembuatan: langkahPembuatan.trim() || null,
+            catatan_resep: catatanResep.trim() || null,
+            durasi_menit: durasiMenit,
+            porsi_standar: porsiStandar,
             foto_url: finalFotoUrl,
             updated_at: new Date().toISOString(),
           } as never)
@@ -291,6 +311,10 @@ function ProductFormContent({
             hpp_terkini: effectiveHpp,
             stok: stok,
             stok_minimum: stokMinimum,
+            langkah_pembuatan: langkahPembuatan.trim() || null,
+            catatan_resep: catatanResep.trim() || null,
+            durasi_menit: durasiMenit,
+            porsi_standar: porsiStandar,
             foto_url: finalFotoUrl,
           } as never)
           .select("id")
@@ -299,6 +323,7 @@ function ProductFormContent({
         if (insertError || !newProd) throw insertError;
         targetProductId = (newProd as { id: string }).id;
       }
+
 
 
       // SYNC RESEP ITEMS
@@ -632,8 +657,77 @@ function ProductFormContent({
         </div>
       </div>
 
-      {/* 6. Stok Jajanan & Stok Minimum Peringatan */}
+      {/* 6. PANDUAN MEMASAK & CATATAN RESEP (BUKU RESEP) */}
+      <div className="p-4 rounded-3xl bg-[#efe6e6]/60 border border-[#d59a9e]/40 space-y-3">
+        <div className="flex items-center gap-2">
+          <ChefHat className="w-4 h-4 text-[#d62934]" />
+          <span className="text-xs font-extrabold text-[#81181f] uppercase tracking-wider">
+            Panduan Memasak & Catatan Dapur (Opsional)
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1 flex items-center gap-1">
+              <Clock className="w-3.5 h-3.5 text-[#d62934]" />
+              <span>Durasi Masak (Menit)</span>
+            </label>
+            <input
+              type="number"
+              min="1"
+              value={durasiMenitStr}
+              onChange={(e) => setDurasiMenitStr(e.target.value)}
+              placeholder="30"
+              className="input-field text-xs"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1 flex items-center gap-1">
+              <UtensilsCrossed className="w-3.5 h-3.5 text-[#d62934]" />
+              <span>Porsi Acuan Resep</span>
+            </label>
+            <input
+              type="number"
+              min="1"
+              value={porsiStandarStr}
+              onChange={(e) => setPorsiStandarStr(e.target.value)}
+              placeholder="1"
+              className="input-field text-xs"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1">
+            Langkah-Langkah Pembuatan / Cara Masak
+          </label>
+          <textarea
+            rows={3}
+            value={langkahPembuatan}
+            onChange={(e) => setLangkahPembuatan(e.target.value)}
+            placeholder="1. Siapkan adonan...&#10;2. Goreng dengan api sedang..."
+            className="input-field text-xs leading-relaxed"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1">
+            Tips & Rahasia Bumbu Dapur
+          </label>
+          <textarea
+            rows={2}
+            value={catatanResep}
+            onChange={(e) => setCatatanResep(e.target.value)}
+            placeholder="Catatan bumbu khusus, suhu penggorengan, tips renyah..."
+            className="input-field text-xs leading-relaxed"
+          />
+        </div>
+      </div>
+
+      {/* 7. Stok Jajanan & Stok Minimum Peringatan */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
         <div>
           <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1.5">
             Stok Tersedia (Porsi) *
