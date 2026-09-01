@@ -668,7 +668,7 @@ function ProductFormContent({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1 flex items-center gap-1">
+            <label className="flex items-center gap-1 text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1">
               <Clock className="w-3.5 h-3.5 text-[#d62934]" />
               <span>Durasi Masak (Menit)</span>
             </label>
@@ -683,7 +683,7 @@ function ProductFormContent({
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1 flex items-center gap-1">
+            <label className="flex items-center gap-1 text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1">
               <UtensilsCrossed className="w-3.5 h-3.5 text-[#d62934]" />
               <span>Porsi Acuan Resep</span>
             </label>
@@ -697,6 +697,7 @@ function ProductFormContent({
             />
           </div>
         </div>
+
 
         <div>
           <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1">

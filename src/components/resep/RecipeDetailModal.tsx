@@ -253,9 +253,10 @@ export function RecipeDetailModal({
                 Belum ada komposisi bahan baku yang dicatat. Anda bisa menambahkan bahan baku di menu Edit Resep atau Katalog Produk.
               </div>
             ) : (
-              <div className="divide-y divide-zinc-100 border border-[#d59a9e]/30 rounded-2xl overflow-hidden bg-white shadow-2xs">
+              <div className="divide-y divide-zinc-100 rounded-2xl overflow-hidden bg-white shadow-2xs border">
                 {product.resep_details.map((item) => {
                   const isChecked = Boolean(checkedIngredients[item.id]);
+
                   const scaledQty = item.jumlah_terpakai * multiplier;
                   const unit = item.bahan_baku?.satuan_terkecil || "gram";
 

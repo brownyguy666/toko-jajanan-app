@@ -115,7 +115,7 @@ export function RecipeEditorModal({
           {/* Durasi & Porsi Acuan */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1 flex items-center gap-1.5">
+              <label className="flex items-center gap-1.5 text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1">
                 <Clock className="w-3.5 h-3.5 text-[#d62934]" />
                 <span>Estimasi Durasi (Menit)</span>
               </label>
@@ -134,7 +134,7 @@ export function RecipeEditorModal({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1 flex items-center gap-1.5">
+              <label className="flex items-center gap-1.5 text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1">
                 <Scale className="w-3.5 h-3.5 text-[#d62934]" />
                 <span>Porsi Acuan Resep Standar</span>
               </label>
@@ -156,7 +156,7 @@ export function RecipeEditorModal({
           {/* Langkah-Langkah Pembuatan */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider flex items-center gap-1.5">
+              <label className="flex items-center gap-1.5 text-xs font-bold text-[#81181f] uppercase tracking-wider">
                 <UtensilsCrossed className="w-3.5 h-3.5 text-[#d62934]" />
                 <span>Langkah-Langkah Pembuatan / Cara Masak</span>
               </label>
@@ -184,7 +184,7 @@ export function RecipeEditorModal({
 
           {/* Catatan Rahasia Dapur & Bumbu Khusus */}
           <div>
-            <label className="block text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+            <label className="flex items-center gap-1.5 text-xs font-bold text-[#81181f] uppercase tracking-wider mb-1.5">
               <Sparkles className="w-3.5 h-3.5 text-amber-600" />
               <span>Tips & Rahasia Dapur (Catatan Bumbu Khusus)</span>
             </label>
@@ -199,6 +199,7 @@ export function RecipeEditorModal({
               Catatan penting untuk menjaga cita rasa dan kualitas jajanan.
             </span>
           </div>
+
 
           {/* Modal Actions */}
           <div className="pt-4 border-t border-zinc-100 flex items-center justify-end gap-2.5">
