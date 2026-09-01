@@ -10,8 +10,8 @@ import {
   UtensilsCrossed,
   Sparkles,
   AlertCircle,
-  HelpCircle,
 } from "lucide-react";
+
 
 interface RecipeEditorModalProps {
   isOpen: boolean;

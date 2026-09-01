@@ -6,6 +6,7 @@ import { ProdukWithRecipeDetails } from "@/app/dashboard/resep/actions";
 import { formatRupiah } from "@/lib/utils";
 import {
   X,
+
   Printer,
   Edit3,
   Clock,
@@ -16,11 +17,9 @@ import {
   CheckSquare,
   Square,
   ChefHat,
-  Info,
-  DollarSign,
-  TrendingUp,
   Image as ImageIcon,
 } from "lucide-react";
+
 
 interface RecipeDetailModalProps {
   isOpen: boolean;

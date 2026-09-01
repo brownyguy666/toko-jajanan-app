@@ -3,8 +3,9 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
-import { Produk, BahanBaku, Resep } from "@/types/database";
+import { Produk, BahanBaku } from "@/types/database";
 import { formatRupiah, parseRupiah } from "@/lib/utils";
+
 import {
   X,
   Upload,
@@ -105,8 +106,7 @@ function ProductFormContent({
 
   // Recipe rows state
   const [recipeRows, setRecipeRows] = useState<RecipeRowState[]>([]);
-  const [loadingRecipe, setLoadingRecipe] = useState(false);
-
+  const [loadingRecipe, setLoadingRecipe] = useState(() => Boolean(productToEdit?.id));
 
   // File upload state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -120,7 +120,6 @@ function ProductFormContent({
   useEffect(() => {
     let isMounted = true;
     if (productToEdit?.id) {
-      setLoadingRecipe(true);
       supabase
         .from("resep")
         .select("bahan_baku_id, jumlah_terpakai")
@@ -138,13 +137,13 @@ function ProductFormContent({
             }
             setLoadingRecipe(false);
           }
-
         });
     }
     return () => {
       isMounted = false;
     };
   }, [productToEdit?.id, supabase]);
+
 
   // Bahan baku lookup map
   const bahanMap = new Map<string, BahanBaku>(bahanBakuList.map((b) => [b.id, b]));
